@@ -1,0 +1,1047 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CampPass</title>
+<meta name="description" content="NYSC digital meal ticket, camp ID and passes. Works fully offline.">
+<meta name="theme-color" content="#008751">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="CampPass">
+<style>
+:root{
+  --green:#008751; --green-d:#006b40; --green-l:#e6f4ee; --green-m:#b9e2cf;
+  --slate:#0F172A; --slate-2:#334155; --muted:#64748B; --line:#E2E8F0;
+  --bg:#F8FAFC; --white:#fff;
+  --amber:#F59E0B; --amber-d:#B45309; --amber-l:#FEF3C7;
+  --red:#DC2626; --red-l:#FEE2E2;
+  --violet:#6D28D9; --violet-l:#EDE9FE;
+  --r:20px; --shadow:0 1px 2px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.06);
+  --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--slate);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+body{min-height:100dvh;overscroll-behavior-y:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+button:focus-visible{outline:3px solid var(--green-m);outline-offset:2px}
+.hidden{display:none!important}
+
+/* ---------- Splash ---------- */
+#splash{position:fixed;inset:0;z-index:100;background:linear-gradient(160deg,#00a862,#006b40);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;transition:opacity .45s ease,visibility .45s}
+#splash.gone{opacity:0;visibility:hidden}
+#splash .logo{width:104px;height:104px;border-radius:28px;background:rgba(255,255,255,.14);display:grid;place-items:center;animation:pop .7s cubic-bezier(.2,1.4,.4,1) both;box-shadow:0 20px 50px rgba(0,0,0,.18)}
+#splash h1{margin:22px 0 4px;font-size:34px;letter-spacing:-.5px;animation:rise .6s .15s both}
+#splash p{margin:0;opacity:.85;font-size:15px;animation:rise .6s .25s both}
+#splash .bar{margin-top:36px;width:120px;height:4px;border-radius:4px;background:rgba(255,255,255,.25);overflow:hidden}
+#splash .bar i{display:block;height:100%;width:40%;background:#fff;border-radius:4px;animation:load 1.1s ease-in-out infinite}
+#splash .foot{position:absolute;bottom:calc(28px + var(--safe-b));font-size:12px;opacity:.75;letter-spacing:.3px}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes rise{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+@keyframes load{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
+
+/* ---------- Header ---------- */
+header{position:sticky;top:0;z-index:20;background:rgba(248,250,252,.92);backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px);padding:calc(10px + var(--safe-t)) 16px 10px;border-bottom:1px solid transparent;transition:border-color .2s}
+header.scrolled{border-color:var(--line)}
+.hrow{display:flex;align-items:center;gap:10px;max-width:560px;margin:0 auto}
+.brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:18px;letter-spacing:-.3px}
+.brand .mark{width:32px;height:32px;border-radius:10px;overflow:hidden;flex:none}
+.role{margin-left:auto;display:flex;background:#E9EEF4;border-radius:999px;padding:3px;position:relative}
+.role button{position:relative;z-index:1;padding:8px 12px;font-size:13px;font-weight:700;border-radius:999px;color:var(--slate-2);transition:color .2s;display:flex;align-items:center;gap:5px;min-height:36px}
+.role button[aria-pressed=true]{color:#fff}
+.role .thumb{position:absolute;top:3px;bottom:3px;left:3px;border-radius:999px;background:var(--green);transition:transform .3s cubic-bezier(.3,1.3,.5,1),width .3s,background .3s;box-shadow:0 2px 6px rgba(0,135,81,.35)}
+.role.kitchen .thumb{background:var(--slate)}
+.iconbtn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:var(--slate-2);flex:none}
+.iconbtn:active{background:#E9EEF4}
+
+/* ---------- Layout ---------- */
+main{max-width:560px;margin:0 auto;padding:6px 16px calc(100px + var(--safe-b))}
+.view{animation:fade .3s ease both}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+h2.title{font-size:26px;letter-spacing:-.6px;margin:10px 0 2px}
+.sub{color:var(--muted);font-size:14px;margin:0 0 14px}
+.card{background:var(--white);border-radius:var(--r);box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
+.sec{font-size:12px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin:22px 4px 10px}
+
+.status-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:6px 10px;border-radius:999px;background:var(--green-l);color:var(--green-d)}
+.status-pill .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(0,135,81,.18)}
+.status-pill.off{background:var(--amber-l);color:var(--amber-d)}
+.status-pill.off .dot{background:var(--amber);box-shadow:0 0 0 3px rgba(245,158,11,.2)}
+
+/* ---------- Segmented meal selector ---------- */
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:#E9EEF4;border-radius:16px;padding:5px;margin-bottom:14px}
+.seg button{padding:10px 4px;border-radius:12px;font-weight:700;font-size:14px;color:var(--slate-2);display:flex;flex-direction:column;align-items:center;gap:1px;min-height:52px;transition:background .2s,color .2s,box-shadow .2s;position:relative}
+.seg button small{font-weight:600;font-size:11px;color:var(--muted)}
+.seg button[aria-pressed=true]{background:#fff;color:var(--slate);box-shadow:0 2px 8px rgba(15,23,42,.1)}
+.seg .mdot{position:absolute;top:7px;right:9px;width:8px;height:8px;border-radius:50%}
+
+/* ---------- Ticket ---------- */
+.ticket{position:relative;border-radius:24px;background:#fff;box-shadow:var(--shadow);overflow:hidden;transition:box-shadow .3s}
+.ticket .top{padding:18px 18px 16px;color:#fff;background:linear-gradient(135deg,#00a862,#007547);position:relative;transition:background .4s}
+.ticket.queued .top{background:linear-gradient(135deg,#FBBF24,#D97706)}
+.ticket.served .top{background:linear-gradient(135deg,#0f9d63,#065f3c)}
+.ticket.rollover .top{background:linear-gradient(135deg,#7C3AED,#4C1D95)}
+.ticket .top .k{font-size:12px;font-weight:700;opacity:.85;letter-spacing:.6px;text-transform:uppercase}
+.ticket .top .meal{font-size:28px;font-weight:800;letter-spacing:-.6px;margin:2px 0 10px;display:flex;align-items:center;gap:8px}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:999px;font-size:12px;font-weight:800;letter-spacing:.4px;background:rgba(255,255,255,.22);color:#fff;backdrop-filter:blur(4px)}
+.badge.solid{background:#fff;color:var(--green-d)}
+.ticket.queued .badge.solid{color:var(--amber-d)}
+.ticket.rollover .badge.solid{color:var(--violet)}
+.badge .pulse{width:8px;height:8px;border-radius:50%;background:currentColor;animation:pulse 1.4s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 currentColor}70%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.ticket .tear{height:22px;position:relative;background:#fff}
+.ticket .tear:before,.ticket .tear:after{content:"";position:absolute;top:0;width:22px;height:22px;border-radius:50%;background:var(--bg)}
+.ticket .tear:before{left:-11px}.ticket .tear:after{right:-11px}
+.ticket .tear i{position:absolute;left:18px;right:18px;top:10px;border-top:2px dashed var(--line)}
+.ticket .body{padding:0 18px 18px}
+.qrwrap{display:flex;justify-content:center;padding:4px 0 12px}
+.qr{width:212px;height:212px;padding:12px;border-radius:18px;background:#fff;border:1px solid var(--line);position:relative}
+.qr svg{width:100%;height:100%;display:block}
+.qr.dim svg{opacity:.12;filter:grayscale(1)}
+.qr .over{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+.qr .over .big{width:84px;height:84px;border-radius:50%;display:grid;place-items:center;color:#fff;background:var(--green);box-shadow:0 10px 30px rgba(0,135,81,.35);animation:pop .5s cubic-bezier(.2,1.5,.4,1) both}
+.ticket .code{text-align:center;font:700 13px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);letter-spacing:1px;margin-top:-4px}
+.ticket .msg{border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.45;margin-top:12px}
+.msg.info{background:var(--green-l);color:#065f3c}
+.msg.warn{background:var(--amber-l);color:#7c2d12}
+.msg.vio{background:var(--violet-l);color:#3b0764}
+.rows{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.rows div{background:var(--bg);border-radius:12px;padding:10px 12px}
+.rows span{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.rows b{font-size:15px}
+
+/* Steps */
+.steps{display:flex;align-items:flex-start;margin:16px 2px 2px}
+.step{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;font-size:11px;font-weight:700;color:var(--muted);position:relative}
+.step .c{width:30px;height:30px;border-radius:50%;background:#EEF2F6;color:#94A3B8;display:grid;place-items:center;font-size:13px;margin-bottom:6px;position:relative;z-index:1;transition:all .3s}
+.step:not(:last-child):after{content:"";position:absolute;top:15px;left:calc(50% + 18px);right:calc(-50% + 18px);height:3px;border-radius:3px;background:#EEF2F6}
+.step.done .c{background:var(--green);color:#fff}
+.step.done:not(:last-child):after{background:var(--green)}
+.step.now .c{background:var(--amber);color:#fff;box-shadow:0 0 0 5px rgba(245,158,11,.2)}
+.step.vio .c{background:var(--violet);color:#fff;box-shadow:0 0 0 5px rgba(109,40,217,.15)}
+.step.done,.step.now,.step.vio{color:var(--slate)}
+
+.hint{display:flex;align-items:center;gap:10px;margin-top:14px;padding:12px 14px;border-radius:14px;border:1.5px dashed var(--line);font-size:13px;color:var(--slate-2);width:100%;text-align:left}
+.hint b{color:var(--green-d)}
+
+/* ---------- ID Card ---------- */
+.idcard{border-radius:24px;overflow:hidden;background:#fff;box-shadow:var(--shadow);position:relative}
+.idcard .band{background:linear-gradient(135deg,#00a862,#006b40);color:#fff;padding:16px 18px 54px;position:relative;overflow:hidden}
+.idcard .band:after{content:"";position:absolute;right:-60px;top:-60px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.08)}
+.idcard .band .k{font-size:11px;font-weight:800;letter-spacing:1.2px;opacity:.85}
+.idcard .band .t{font-size:16px;font-weight:800;margin-top:2px}
+.idcard .flag{display:flex;height:6px}
+.idcard .flag i{flex:1}
+.idcard .who{display:flex;gap:14px;align-items:flex-end;padding:0 18px;margin-top:-44px;position:relative}
+.avatar{width:84px;height:84px;border-radius:22px;background:linear-gradient(135deg,#e6f4ee,#b9e2cf);border:4px solid #fff;display:grid;place-items:center;font-size:30px;font-weight:800;color:var(--green-d);flex:none;box-shadow:0 6px 16px rgba(15,23,42,.12)}
+.who .n{font-size:20px;font-weight:800;letter-spacing:-.3px;line-height:1.2}
+.who .sc{font:800 14px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--green-d);margin-top:3px}
+.idcard .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:16px 18px 6px}
+.idcard .grid div span{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.idcard .grid div b{font-size:15px}
+.idcard .qrrow{display:flex;gap:14px;align-items:center;padding:12px 18px 18px}
+.idcard .qrrow .qr{width:128px;height:128px;padding:8px;border-radius:14px;flex:none}
+.idcard .qrrow p{margin:0;font-size:13px;color:var(--muted);line-height:1.45}
+
+/* ---------- Passes ---------- */
+.pass{display:flex;gap:14px;align-items:center}
+.pass .ic{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;flex:none}
+.pass h3{margin:0;font-size:17px}
+.pass p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.verified{margin-left:auto;font-size:11px;font-weight:800;color:var(--green-d);background:var(--green-l);padding:6px 9px;border-radius:999px;display:flex;gap:4px;align-items:center;flex:none}
+.check{display:flex;align-items:center;gap:12px;padding:13px 2px;border-top:1px solid var(--line)}
+.check:first-of-type{border-top:0}
+.check .bx{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;flex:none}
+.check.ok .bx{background:var(--green);color:#fff}
+.check.no .bx{background:#F1F5F9;color:#94A3B8;border:2px dashed #CBD5E1}
+.check .tx{flex:1}
+.check .tx b{display:block;font-size:15px}
+.check .tx small{color:var(--muted);font-size:12px}
+.progress{height:10px;background:#EEF2F6;border-radius:10px;overflow:hidden;margin:10px 0 4px}
+.progress i{display:block;height:100%;background:linear-gradient(90deg,#00a862,#008751);border-radius:10px;transition:width .6s}
+
+/* ---------- History ---------- */
+.day{margin-bottom:14px}
+.day h4{margin:0 0 8px 4px;font-size:13px;color:var(--muted);font-weight:800}
+.hitem{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.hitem:first-child{border-top:0;padding-top:2px}
+.hitem .em{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;font-size:20px;background:var(--bg);flex:none}
+.hitem .tx{flex:1;min-width:0}
+.hitem .tx b{display:block;font-size:15px}
+.hitem .tx small{color:var(--muted);font-size:12px}
+.chip{font-size:11px;font-weight:800;padding:6px 9px;border-radius:999px;letter-spacing:.3px;white-space:nowrap}
+.chip.served{background:var(--green-l);color:var(--green-d)}
+.chip.queued{background:var(--amber-l);color:var(--amber-d)}
+.chip.rollover{background:var(--violet-l);color:var(--violet)}
+.chip.ready{background:#F1F5F9;color:var(--slate-2)}
+.chip.missed{background:#F1F5F9;color:var(--muted)}
+.stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.stat{background:#fff;border-radius:16px;box-shadow:var(--shadow);padding:12px;text-align:center}
+.stat b{display:block;font-size:24px;letter-spacing:-.5px}
+.stat span{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+
+/* ---------- Kitchen ---------- */
+.kgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kbox{border-radius:16px;padding:12px 14px;background:var(--bg)}
+.kbox span{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.kbox b{display:block;font-size:30px;letter-spacing:-1px;line-height:1.15;font-variant-numeric:tabular-nums}
+.kbox.big{grid-column:1/-1;background:var(--slate);color:#fff;display:flex;align-items:center;justify-content:space-between}
+.kbox.big span{color:#94A3B8}
+.kbox.big b{font-size:52px}
+.kbox.big.low{background:linear-gradient(135deg,#B45309,#92400E)}
+.kbox.big.zero{background:linear-gradient(135deg,#B91C1C,#7F1D1D)}
+.stepper{display:flex;gap:8px}
+.stepper button{width:52px;height:52px;border-radius:16px;background:rgba(255,255,255,.14);color:#fff;font-size:26px;font-weight:700;display:grid;place-items:center}
+.stepper button:active{background:rgba(255,255,255,.28)}
+.meter{height:12px;border-radius:12px;background:#EEF2F6;overflow:hidden;display:flex;margin:14px 0 6px}
+.meter i{display:block;height:100%;transition:width .5s}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);font-weight:600}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.risk{margin-top:12px;padding:11px 13px;border-radius:12px;background:var(--amber-l);color:#7c2d12;font-size:13px;font-weight:600;display:flex;gap:8px;align-items:flex-start}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:56px;border-radius:16px;font-weight:800;font-size:16px;padding:0 16px;transition:transform .1s,opacity .2s,background .2s}
+.btn:active{transform:scale(.98)}
+.btn[disabled]{opacity:.38;pointer-events:none}
+.btn.primary{background:var(--green);color:#fff;box-shadow:0 6px 18px rgba(0,135,81,.28)}
+.btn.amber{background:var(--amber);color:#3b1d02;box-shadow:0 6px 18px rgba(245,158,11,.3)}
+.btn.violet{background:var(--violet);color:#fff;box-shadow:0 6px 18px rgba(109,40,217,.28)}
+.btn.dark{background:var(--slate);color:#fff}
+.btn.ghost{background:#fff;border:1.5px solid var(--line);color:var(--slate)}
+.btn.danger{background:var(--red-l);color:var(--red);border:1.5px solid #FECACA}
+.btn .num{width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.25);display:grid;place-items:center;font-size:13px}
+.btn.amber .num{background:rgba(0,0,0,.1)}
+.stack{display:grid;gap:10px}
+
+.scanee{display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;background:var(--bg);margin-bottom:14px}
+.scanee .avatar{width:48px;height:48px;border-radius:14px;font-size:18px;border-width:0;box-shadow:none}
+.scanee b{display:block;font-size:15px}
+.scanee small{font:700 12px ui-monospace,Menlo,monospace;color:var(--muted)}
+.scanee .chip{margin-left:auto}
+
+.scanner{position:relative;border-radius:18px;overflow:hidden;background:#000;aspect-ratio:1/1;margin-bottom:12px}
+.scanner video{width:100%;height:100%;object-fit:cover}
+.scanner .frame{position:absolute;inset:18%;border:3px solid rgba(255,255,255,.9);border-radius:22px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
+.scanner .laser{position:absolute;left:18%;right:18%;height:2px;background:#22c55e;box-shadow:0 0 12px #22c55e;animation:laser 1.8s ease-in-out infinite alternate;top:18%}
+@keyframes laser{to{top:82%}}
+
+table.audit{width:100%;border-collapse:collapse;font-size:14px}
+.audit th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);text-align:left;padding:0 0 8px;font-weight:800}
+.audit td{padding:9px 0;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+.audit td.n{text-align:right;font-weight:700;width:58px}
+.audit th.n{text-align:right}
+.audit tr.me td{background:linear-gradient(90deg,var(--green-l),transparent)}
+.audit .bar{height:8px;border-radius:8px;background:#EEF2F6;overflow:hidden;display:flex;margin-top:4px;max-width:150px}
+.audit .bar i{height:100%}
+.log{list-style:none;margin:0;padding:0}
+.log li{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:13px;align-items:flex-start}
+.log li:first-child{border-top:0}
+.log time{font:700 12px ui-monospace,Menlo,monospace;color:var(--muted);flex:none;width:62px;padding-top:1px}
+.log .d{width:8px;height:8px;border-radius:50%;margin-top:5px;flex:none}
+
+/* ---------- Bottom nav ---------- */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(255,255,255,.96);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:6px 8px calc(6px + var(--safe-b))}
+nav.tabs .in{max-width:560px;margin:0 auto;display:flex}
+nav.tabs button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0 4px;font-size:11px;font-weight:700;color:#94A3B8;min-height:56px;border-radius:14px;position:relative}
+nav.tabs button svg{transition:transform .2s}
+nav.tabs button[aria-current=page]{color:var(--green)}
+nav.tabs.kitchen button[aria-current=page]{color:var(--slate)}
+nav.tabs button[aria-current=page] svg{transform:translateY(-1px) scale(1.08)}
+nav.tabs button[aria-current=page]:before{content:"";position:absolute;top:-7px;width:28px;height:3px;border-radius:0 0 3px 3px;background:currentColor}
+nav.tabs .nb{position:absolute;top:4px;left:calc(50% + 8px);min-width:9px;height:9px;border-radius:9px;background:var(--amber);border:2px solid #fff}
+
+/* ---------- Sheet / toast / install ---------- */
+.scrim{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:60;opacity:0;visibility:hidden;transition:opacity .25s,visibility .25s}
+.scrim.open{opacity:1;visibility:visible}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:61;background:#fff;border-radius:26px 26px 0 0;padding:10px 18px calc(22px + var(--safe-b));transform:translateY(105%);transition:transform .32s cubic-bezier(.2,.9,.3,1);max-width:560px;margin:0 auto;max-height:88dvh;overflow:auto}
+.sheet.open{transform:none}
+.sheet .grab{width:42px;height:5px;border-radius:5px;background:#CBD5E1;margin:0 auto 14px}
+.sheet h3{margin:0 0 4px;font-size:21px;letter-spacing:-.3px}
+.sheet p{color:var(--muted);font-size:14px;line-height:1.5;margin:0 0 14px}
+.srow{display:flex;align-items:center;gap:12px;padding:14px 0;border-top:1px solid var(--line);width:100%;text-align:left}
+.srow .ic{width:40px;height:40px;border-radius:12px;background:var(--bg);display:grid;place-items:center;flex:none}
+.srow b{display:block;font-size:15px}
+.srow small{color:var(--muted);font-size:12px}
+.ios-steps{display:grid;gap:10px;margin:6px 0 16px}
+.ios-steps div{display:flex;align-items:center;gap:12px;background:var(--bg);border-radius:14px;padding:12px 14px;font-size:15px}
+.ios-steps .n{width:28px;height:28px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px;flex:none}
+
+#install{position:fixed;left:12px;right:12px;bottom:calc(84px + var(--safe-b));z-index:40;max-width:536px;margin:0 auto;background:var(--slate);color:#fff;border-radius:20px;padding:12px 12px 12px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 18px 40px rgba(15,23,42,.35);transform:translateY(40px);opacity:0;visibility:hidden;pointer-events:none;transition:transform .45s cubic-bezier(.2,1.2,.4,1),opacity .3s,visibility .3s}
+#install.show{transform:none;opacity:1;visibility:visible;pointer-events:auto}
+#install img{width:44px;height:44px;border-radius:12px;flex:none}
+#install .tx{flex:1;min-width:0}
+#install b{display:block;font-size:15px}
+#install small{opacity:.75;font-size:12px}
+#install .go{background:var(--green);color:#fff;font-weight:800;padding:11px 16px;border-radius:12px;font-size:14px;flex:none}
+#install .x{width:32px;height:32px;display:grid;place-items:center;opacity:.6;flex:none}
+
+#toast{position:fixed;left:50%;top:calc(14px + var(--safe-t));z-index:90;transform:translate(-50%,-140%);background:var(--slate);color:#fff;padding:12px 16px;border-radius:16px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px;box-shadow:0 12px 30px rgba(15,23,42,.3);transition:transform .35s cubic-bezier(.2,1.3,.4,1);max-width:calc(100% - 32px);width:max-content}
+#toast.show{transform:translate(-50%,0)}
+#toast .ti{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;flex:none}
+
+.confetti{position:fixed;inset:0;pointer-events:none;z-index:80;overflow:hidden}
+.confetti i{position:absolute;top:-12px;width:9px;height:14px;border-radius:2px;animation:fall 1.6s cubic-bezier(.3,.6,.5,1) forwards}
+@keyframes fall{to{transform:translateY(105vh) rotate(720deg);opacity:.4}}
+.shake{animation:shake .5s}
+@keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+
+<div id="splash" role="status" aria-label="Loading CampPass">
+  <div class="logo">
+    <svg width="64" height="64" viewBox="-130 -130 260 260"><path d="M-120,-78 a18,18 0 0 1 18,-18 h204 a18,18 0 0 1 18,18 v40 a38,38 0 0 0 0,76 v40 a18,18 0 0 1 -18,18 h-204 a18,18 0 0 1 -18,-18 v-40 a38,38 0 0 0 0,-76 z" fill="#fff"/><path d="M-48,0 l30,30 l62,-62" fill="none" stroke="#008751" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+  <h1>CampPass</h1>
+  <p>Your NYSC camp, in your pocket</p>
+  <div class="bar"><i></i></div>
+  <div class="foot">Works offline · No paper tickets</div>
+</div>
+
+<header id="hdr">
+  <div class="hrow">
+    <div class="brand"><img class="mark" src="icons/icon.svg" alt=""><span>CampPass</span></div>
+    <div class="role" id="role" role="group" aria-label="Switch view">
+      <span class="thumb" id="roleThumb"></span>
+      <button data-role="member" aria-pressed="true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Corps
+      </button>
+      <button data-role="kitchen" aria-pressed="false">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg>Official
+      </button>
+    </div>
+    <button class="iconbtn" id="menuBtn" aria-label="Settings">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="app"></main>
+
+<nav class="tabs" id="tabs"><div class="in" id="tabsIn"></div></nav>
+
+<div id="install" aria-live="polite">
+  <img src="icons/icon-192.png" alt="">
+  <div class="tx"><b>Install CampPass</b><small>Add to Home Screen. Works with no signal.</small></div>
+  <button class="go" id="installGo">Install</button>
+  <button class="x" id="installX" aria-label="Not now"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<style>
+.people{display:flex;gap:8px;overflow-x:auto;margin:0 -16px 14px;padding:2px 16px 6px;scrollbar-width:none}
+.people::-webkit-scrollbar{display:none}
+.person{flex:none;display:flex;align-items:center;gap:8px;padding:8px 12px 8px 8px;border-radius:999px;background:#fff;box-shadow:var(--shadow);font-size:13px;font-weight:700;border:2px solid transparent}
+.person[aria-pressed=true]{border-color:var(--slate)}
+.person .av{width:30px;height:30px;border-radius:50%;background:var(--green-l);color:var(--green-d);display:grid;place-items:center;font-size:12px;font-weight:800}
+.person .sd{width:8px;height:8px;border-radius:50%}
+.status-pill.live .dot{animation:pulse 1.6s infinite;color:rgba(0,135,81,.5)}
+.status-pill.sync{background:#E0F2FE;color:#075985}
+.status-pill.sync .dot{background:#0284C7;box-shadow:0 0 0 3px rgba(2,132,199,.2)}
+.status-pill.local{background:#F1F5F9;color:var(--slate-2)}
+.status-pill.local .dot{background:#94A3B8;box-shadow:none}
+</style>
+<script src="vendor/qrcode.js"></script>
+<script src="engine.js"></script>
+<script>
+(function(){
+'use strict';
+const E = window.CampEngine;
+const { MEALS, MEAL, PLATOONS } = E;
+
+/* =========================================================
+   Local state: world (shared camp data) + ui (this phone only)
+   ========================================================= */
+const WKEY = 'camppass.world.v2', UKEY = 'camppass.ui.v2', OKEY = 'camppass.outbox.v2';
+const today = () => E.dkey(new Date());
+const read = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } };
+const write = (k,v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} };
+
+let W = read(WKEY);
+if (!W || W.v !== 2) W = E.seedWorld(today());
+let outbox = read(OKEY) || [];
+const defaultMeal = () => { const h = new Date().getHours(); return h < 11 ? 'breakfast' : h < 17 ? 'lunch' : 'dinner'; };
+let U = Object.assign({role:'member', tab:'meal', ktab:'scan', meal:defaultMeal(), me:E.DEMO_CODE, scan:E.DEMO_CODE}, read(UKEY)||{});
+if (!W.members[U.me]) U.me = E.DEMO_CODE;
+if (!W.members[U.scan]) U.scan = U.me;
+let net = 'connecting'; // connecting | live | syncing | offline | local
+let serverBase = null;   // world from the server, before local pending actions
+
+const saveAll = () => { write(WKEY, W); write(UKEY, U); write(OKEY, outbox); };
+const ensure = () => E.ensureDay(W, today());
+const ME = () => W.members[U.me];
+const P = () => ME().profile;
+const T = (m=U.meal, code=U.me) => W.members[code].tickets[today()][m];
+const K = (m=U.meal) => W.kitchen[today()][m];
+const remaining = (k) => E.remaining(k);
+const inQueue = (m=U.meal) => E.inQueue(W, today(), m);
+
+/* =========================================================
+   Sync with the server (REST + live Server-Sent Events)
+   Actions apply locally first, so the app never waits on the network.
+   ========================================================= */
+function act(a){
+  a = Object.assign({day: today(), meal: U.meal, at: Date.now(), id: Math.random().toString(36).slice(2)}, a);
+  ensure();
+  const res = E.apply(W, a);
+  if (!res.ok){ fail(res.msg); return res; }
+  outbox.push(a); saveAll();
+  if (!res.quiet) toast(res.msg, res.tone);
+  fx(res.fx);
+  render(); flush();
+  return res;
+}
+
+let flushing = false;
+async function flush(){
+  if (flushing || !outbox.length || net === 'local') return;
+  flushing = true;
+  const batch = outbox.slice();
+  if (net !== 'offline') setNet('syncing');
+  try{
+    const r = await fetch('api/actions', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({actions: batch})});
+    if (!r.ok) throw new Error(r.status);
+    const data = await r.json();
+    outbox = outbox.slice(batch.length);
+    adoptServer(data.world);
+    setNet(sse && sse.readyState === 1 ? 'live' : 'live');
+  }catch(e){ setNet(navigator.onLine ? 'offline' : 'offline'); }
+  flushing = false;
+  if (outbox.length && net !== 'offline') setTimeout(flush, 300);
+}
+
+// Server is the source of truth; re-apply anything this phone has not sent yet.
+function adoptServer(world){
+  if (!world || world.v !== 2) return;
+  serverBase = world;
+  const w = JSON.parse(JSON.stringify(world));
+  for (const a of outbox) { try { E.apply(w, a); } catch(e){} }
+  const prevStatus = T().status;
+  W = w; ensure();
+  if (!W.members[U.me]) U.me = E.DEMO_CODE;
+  if (!W.members[U.scan]) U.scan = U.me;
+  saveAll();
+  const now = T().status;
+  if (U.role === 'member' && now !== prevStatus){
+    if (now === 'queued') { toast(`Checked in · #${T().queuePos} in queue`, 'amber'); buzz(30); }
+    if (now === 'served') { toast('Plate handed over · Served', 'green'); fx('served'); }
+    if (now === 'rollover') { toast('Food finished · Priority Rollover Pass issued', 'violet'); buzz([60,60,60]); }
+  }
+  if (!document.querySelector('.sheet.open input') && !camStream) render();
+}
+
+let sse = null;
+async function connect(){
+  try{
+    const r = await fetch('api/state?day=' + today(), {cache:'no-store'});
+    if (r.status === 404){ setNet('local'); return; }   // static hosting, no backend: run fully on-device
+    if (!r.ok) throw new Error(r.status);
+    const data = await r.json();
+    adoptServer(data.world);
+    setNet('live');
+    flush();
+    openStream();
+  }catch(e){
+    setNet('offline');
+    setTimeout(connect, 8000);
+  }
+}
+function openStream(){
+  if (!('EventSource' in window) || sse) return;
+  sse = new EventSource('api/stream');
+  sse.addEventListener('world', (ev) => { try { if (!flushing) adoptServer(JSON.parse(ev.data)); } catch(e){} if (net!=='syncing') setNet('live'); });
+  sse.onerror = () => { if (sse.readyState === 2){ sse = null; setNet('offline'); setTimeout(connect, 5000); } else setNet('offline'); };
+  sse.onopen = () => { setNet('live'); flush(); };
+}
+function setNet(s){ if (net === s) return; net = s; document.querySelectorAll('[data-net]').forEach(el => el.outerHTML = onlineState()); }
+window.addEventListener('online', () => { if (net==='local') return; connect(); });
+window.addEventListener('offline', () => { if (net!=='local') setNet('offline'); });
+
+/* =========================================================
+   UI helpers
+   ========================================================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function buzz(p){ try { navigator.vibrate && navigator.vibrate(p); } catch(e){} }
+const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) : '—';
+const fmtDay = k => {
+  if (k === today()) return 'Today';
+  if (k === E.shiftDay(today(), -1)) return 'Yesterday';
+  const [y,m,d] = k.split('-').map(Number);
+  return new Date(y,m-1,d).toLocaleDateString([], {weekday:'long', day:'numeric', month:'short'});
+};
+const initials = (p=P()) => (p.first[0]+p.last[0]).toUpperCase();
+
+function qrSvg(text, dark='#0F172A'){
+  try{
+    const q = qrcode(0, 'M'); q.addData(text); q.make();
+    const n = q.getModuleCount(); let d = '';
+    for (let r=0;r<n;r++) for (let c=0;c<n;c++) if (q.isDark(r,c)) d += `M${c},${r}h1v1h-1z`;
+    return `<svg viewBox="-1 -1 ${n+2} ${n+2}" shape-rendering="crispEdges" role="img" aria-label="QR code"><path d="${d}" fill="${dark}"/></svg>`;
+  }catch(e){ return '<svg viewBox="0 0 10 10"></svg>'; }
+}
+function payload(m){
+  const t = T(m), kind = (t.status==='rollover' && !t.redeemedAt) ? 'PRIORITY' : 'MEAL';
+  return `CAMPPASS|${kind}|${P().stateCode}|${today()}|${m.toUpperCase()}|${E.token(P().stateCode, today(), m, kind)}`;
+}
+
+const ICON = {
+  check:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
+  bigcheck:'<svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
+  star:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4L2.8 9.5l6.4-.8z"/></svg>',
+  clock:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  plate:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/></svg>',
+  scan:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg>',
+  cam:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l2-2h6l2 2h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="4"/></svg>',
+  bed:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18V6M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5"/><circle cx="7" cy="10.5" r="1.8"/></svg>',
+  shield:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>',
+  x:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  arrow:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  alert:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3l10 18H2z"/><path d="M12 10v4M12 17.5v.5"/></svg>',
+};
+const TAB_ICONS = {
+  meal:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/><path d="M14 6v12" stroke-dasharray="2 2.5"/></svg>',
+  id:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="11" r="2.4"/><path d="M5.8 17c.6-1.8 1.8-2.6 3.2-2.6s2.6.8 3.2 2.6M15 10h3M15 14h3"/></svg>',
+  passes:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>',
+  history:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>',
+  scan:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg>',
+  rations:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/></svg>',
+  audit:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+};
+
+let toastTimer;
+function toast(msg, tone='green'){
+  const colors = {green:'#008751', amber:'#F59E0B', violet:'#7C3AED', red:'#DC2626', dark:'#334155'};
+  const icon = tone==='red' ? ICON.x : tone==='violet' ? ICON.star : tone==='amber' ? ICON.clock : ICON.check;
+  const el = $('#toast');
+  el.innerHTML = `<span class="ti" style="background:${colors[tone]||colors.dark}">${icon}</span><span>${esc(msg)}</span>`;
+  el.classList.add('show'); clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 2600);
+}
+function fail(msg){ toast(msg, 'red'); buzz([40,30,40]); return false; }
+function fx(kind){
+  if (kind==='served'){ buzz([20,40,20]); confetti(); }
+  else if (kind==='checkin') buzz(30);
+  else if (kind==='rollover' || kind==='finish'){ buzz([80,40,80]); const a=$('#app'); a.classList.add('shake'); setTimeout(()=>a.classList.remove('shake'),500); }
+}
+function confetti(){
+  const c = document.createElement('div'); c.className='confetti';
+  const cols = ['#008751','#00a862','#F59E0B','#ffffff','#0F172A'];
+  for (let i=0;i<46;i++){
+    const p = document.createElement('i');
+    p.style.left = Math.random()*100+'%'; p.style.background = cols[i%cols.length];
+    p.style.animationDelay = Math.random()*.35+'s'; p.style.animationDuration = 1.2+Math.random()*.9+'s';
+    if (i%5===3) p.style.boxShadow = 'inset 0 0 0 1px #cbd5e1';
+    c.appendChild(p);
+  }
+  document.body.appendChild(c); setTimeout(()=>c.remove(), 2600);
+}
+
+function onlineState(){
+  const pend = outbox.length;
+  const m = {
+    live:    ['', 'live', 'Live · Synced'],
+    syncing: ['sync', '', 'Syncing…'],
+    connecting: ['sync', '', 'Connecting…'],
+    offline: ['off', '', pend ? `No signal · ${pend} change${pend>1?'s':''} saved` : 'Offline Ready · Saved on device'],
+    local:   ['local', '', 'Offline Ready · On-device mode'],
+  }[net] || ['', '', 'Offline Ready'];
+  return `<span class="status-pill ${m[0]} ${m[1]}" data-net><span class="dot"></span>${m[2]}</span>`;
+}
+
+/* =========================================================
+   Render
+   ========================================================= */
+const MEMBER_TABS = [['meal','Meal Ticket'],['id','Camp ID'],['passes','Passes'],['history','History']];
+const KITCHEN_TABS = [['scan','Scanner'],['rations','Rations'],['audit','Audit']];
+
+function render(){
+  ensure();
+  const isK = U.role === 'kitchen';
+  const role = $('#role'); role.classList.toggle('kitchen', isK);
+  role.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.role===U.role)));
+  placeThumb();
+  document.querySelector('meta[name=theme-color]').setAttribute('content', isK ? '#0F172A' : '#008751');
+
+  const tabs = isK ? KITCHEN_TABS : MEMBER_TABS;
+  const cur = isK ? U.ktab : U.tab;
+  $('#tabs').classList.toggle('kitchen', isK);
+  $('#tabsIn').innerHTML = tabs.map(([id,label]) => {
+    const dot = (!isK && id==='meal' && (T().status==='queued' || E.pendingRollover(W, U.me, today()))) ? '<span class="nb"></span>' : '';
+    return `<button data-tab="${id}" ${id===cur?'aria-current="page"':''}>${TAB_ICONS[id]}${label}${dot}</button>`;
+  }).join('');
+
+  const html = isK ? ({scan:vScan, rations:vRations, audit:vAudit}[U.ktab]||vScan)()
+                   : ({meal:vMeal, id:vId, passes:vPasses, history:vHistory}[U.tab]||vMeal)();
+  const key = `${U.role}-${cur}`;
+  const app = $('#app');
+  const animate = app.dataset.key !== key;
+  app.dataset.key = key;
+  app.innerHTML = `<div class="${animate?'view':''}">${html}</div>`;
+  if (camStream) stopCamera();
+}
+function placeThumb(){
+  const r = $('#role').querySelector('[aria-pressed=true]'); if (!r) return;
+  $('#roleThumb').style.width = r.offsetWidth+'px'; $('#roleThumb').style.transform = `translateX(${r.offsetLeft-3}px)`;
+}
+
+function mealSeg(code=U.me){
+  return `<div class="seg" role="group" aria-label="Choose meal">${MEALS.map(m=>{
+    const t = T(m.id, code);
+    const st = t.status==='rollover' && t.redeemedAt ? 'served' : t.status;
+    const col = {queued:'var(--amber)', served:'var(--green)', rollover:'var(--violet)'}[st];
+    return `<button data-meal="${m.id}" aria-pressed="${m.id===U.meal}">${col?`<span class="mdot" style="background:${col}"></span>`:''}${m.emoji} ${m.name}<small>${m.short}</small></button>`;
+  }).join('')}</div>`;
+}
+
+function steps(t){
+  const st = t.status, ro = st==='rollover';
+  const s2 = st==='queued' ? 'now' : (st==='served'||ro) ? 'done' : '';
+  const s3 = st==='served' || (ro && t.redeemedAt) ? 'done' : ro ? 'vio' : '';
+  return `<div class="steps" aria-label="Ticket progress">
+    <div class="step done"><span class="c">${ICON.check}</span>Ticket ready</div>
+    <div class="step ${s2}"><span class="c">${s2==='done'?ICON.check:'2'}</span>Checked in</div>
+    <div class="step ${s3}"><span class="c">${s3==='done'?ICON.check:ro?ICON.star:'3'}</span>${ro?'Priority pass':'Served'}</div>
+  </div>`;
+}
+
+function vMeal(){
+  const m = MEAL[U.meal], t = T(), k = K(), st = t.status;
+  const pr = E.pendingRollover(W, U.me, today());
+  let badge, msg = '', qrClass = '', overlay = '', cls = st;
+  if (st==='ready'){
+    badge = `<span class="badge solid"><span class="pulse"></span>READY · UNCLAIMED</span>`;
+    msg = pr && pr.meal !== U.meal
+      ? `<div class="msg vio"><b>⭐ Priority lane:</b> you have an unredeemed rollover from ${MEAL[pr.meal].name}. Show it at the front of the queue.</div>`
+      : `<div class="msg info">Show this QR at the kitchen gate. Your ticket is <b>only marked as used when your plate is handed to you</b>, not at the gate.</div>`;
+  } else if (st==='queued'){
+    badge = `<span class="badge solid"><span class="pulse"></span>CHECKED IN · AWAITING PLATE</span>`;
+    msg = `<div class="msg warn"><b>You're #${t.queuePos} in the queue.</b> 1 ration is reserved for you. If food finishes before you're served, you automatically get a Priority Rollover Pass.</div>`;
+  } else if (st==='served'){
+    badge = `<span class="badge solid">${ICON.check} SERVED</span>`;
+    qrClass = 'dim'; overlay = `<div class="over"><div class="big">${ICON.bigcheck}</div></div>`;
+    msg = `<div class="msg info">Enjoy your meal! Plate handover confirmed at <b>${fmtTime(t.servedAt)}</b>.</div>`;
+  } else if (st==='rollover' && t.redeemedAt){
+    cls = 'served';
+    badge = `<span class="badge solid">${ICON.check} PRIORITY PASS REDEEMED</span>`;
+    qrClass='dim'; overlay = `<div class="over"><div class="big" style="background:var(--violet)">${ICON.bigcheck}</div></div>`;
+    msg = `<div class="msg info">Food ran out at ${fmtTime(t.rolledAt)}, but your protected meal was served at <b>${fmtTime(t.redeemedAt)}</b> from the next batch. No meal lost.</div>`;
+  } else {
+    badge = `<span class="badge solid">${ICON.star} UNSERVED · PRIORITY ROLLOVER</span>`;
+    msg = `<div class="msg vio"><b>Food finished before you reached the serving point.</b> Your gate check-in at ${fmtTime(t.checkedInAt)} proves you came, so this ticket is now a <b>Priority Rollover Pass</b>. Use it at the front of the next batch or the next meal.</div>`;
+  }
+  const rows = st==='queued'
+    ? `<div><span>Checked in</span><b>${fmtTime(t.checkedInAt)}</b></div><div><span>Plates left</span><b>${remaining(k)}</b></div>`
+    : st==='served'
+    ? `<div><span>Checked in</span><b>${fmtTime(t.checkedInAt)}</b></div><div><span>Served</span><b>${fmtTime(t.servedAt)}</b></div>`
+    : st==='rollover'
+    ? `<div><span>Checked in</span><b>${fmtTime(t.checkedInAt)}</b></div><div><span>${t.redeemedAt?'Served':'Food finished'}</span><b>${fmtTime(t.redeemedAt||t.rolledAt)}</b></div>`
+    : `<div><span>Serving</span><b>${m.time.replace(' – ','–')}</b></div><div><span>On the menu</span><b>${esc(t.menu)}</b></div>`;
+  const open = st==='ready' || st==='queued' || (st==='rollover' && !t.redeemedAt);
+  const kind = st==='rollover' && !t.redeemedAt ? 'PRIORITY' : 'MEAL';
+  return `
+    <div style="margin:8px 0 12px">
+      <h2 class="title" style="margin:0">Hi, ${esc(P().first)} 👋</h2>
+      <p class="sub" style="margin:2px 0 8px">${new Date().toLocaleDateString([], {weekday:'long', day:'numeric', month:'long'})}</p>
+      ${onlineState()}
+    </div>
+    ${mealSeg()}
+    <article class="ticket ${cls}" aria-live="polite">
+      <div class="top">
+        <div class="k">Meal ticket · Platoon ${P().platoon}</div>
+        <div class="meal">${m.emoji} ${m.name}</div>
+        ${badge}
+      </div>
+      <div class="tear"><i></i></div>
+      <div class="body">
+        <div class="qrwrap"><div class="qr ${qrClass}">${qrSvg(payload(U.meal), kind==='PRIORITY'?'#4C1D95':'#0F172A')}${overlay}</div></div>
+        <div class="code">${esc(P().stateCode)} · ${E.token(P().stateCode, today(), U.meal, kind)}</div>
+        ${steps(t)}
+        ${msg}
+        <div class="rows">${rows}</div>
+      </div>
+    </article>
+    ${open ? `<button class="hint" data-go="kitchen">${ICON.scan}<span><b>Demo tip:</b> switch to <b>Official</b> view (or open CampPass on a second phone) to scan this ticket.</span></button>`:''}
+  `;
+}
+
+function vId(){
+  const p = P();
+  return `
+    <h2 class="title">Camp ID</h2>
+    <p class="sub">Show this to camp officials and soldiers on duty.</p>
+    <article class="idcard">
+      <div class="flag"><i style="background:#008751"></i><i style="background:#fff"></i><i style="background:#008751"></i></div>
+      <div class="band"><div class="k">NATIONAL YOUTH SERVICE CORPS</div><div class="t">Orientation Camp ID</div></div>
+      <div class="who">
+        <div class="avatar">${initials()}</div>
+        <div style="padding-bottom:4px;min-width:0"><div class="n">${esc(p.first)} ${esc(p.last)}</div><div class="sc">${esc(p.stateCode)}</div></div>
+      </div>
+      <div class="grid">
+        <div><span>Platoon</span><b>Platoon ${p.platoon}</b></div>
+        <div><span>Hostel & bunk</span><b>${esc(p.hostel)}, ${esc(p.bunk)}</b></div>
+        <div><span>Batch</span><b>${esc(p.batch)}</b></div>
+        <div><span>Blood group</span><b>${esc(p.blood)}</b></div>
+        <div style="grid-column:1/-1"><span>Camp</span><b>${esc(p.camp)}</b></div>
+      </div>
+      <div class="qrrow">
+        <div class="qr">${qrSvg(`CAMPPASS|ID|${p.stateCode}|${p.first} ${p.last}|P${p.platoon}|${p.hostel}-${p.bunk}`)}</div>
+        <div><div style="margin-bottom:8px">${onlineState()}</div><p>Scannable even with no network. Your pass is stored on this phone.</p></div>
+      </div>
+    </article>
+    <div class="sec">Details</div>
+    <div class="card" style="padding:4px 16px">
+      ${[['Call-up number',p.callUp],['Institution',p.institution],['Course of study',p.course]].map(([a,b],i)=>`<div class="srow" style="${i?'':'border-top:0'}"><div style="flex:1"><small>${a}</small><b>${esc(b)}</b></div></div>`).join('')}
+    </div>`;
+}
+
+function vPasses(){
+  const p = P(), cl = ME().clearance, done = cl.filter(c=>c.ok).length, pct = Math.round(done/cl.length*100);
+  return `
+    <h2 class="title">Passes</h2>
+    <p class="sub">Your accommodation and clearance, all in one place.</p>
+    <div class="card">
+      <div class="pass">
+        <div class="ic" style="background:var(--green-l);color:var(--green-d)">${ICON.bed}</div>
+        <div style="min-width:0"><h3>Hostel Bunk Pass</h3><p>${esc(p.hostel)} · ${esc(p.bunk)}</p></div>
+        <span class="verified">${ICON.check}Verified</span>
+      </div>
+      <div class="rows" style="margin-top:14px">
+        <div><span>Hostel</span><b>${esc(p.hostel)}</b></div>
+        <div><span>Bunk</span><b>${esc(p.bunk)}</b></div>
+        <div><span>Hostel warden</span><b>Mrs. Bello</b></div>
+        <div><span>Lights out</span><b>10:00 PM</b></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="pass">
+        <div class="ic" style="background:#EEF2FF;color:#4338CA">${ICON.shield}</div>
+        <div style="min-width:0"><h3>Camp Clearance</h3><p>${done} of ${cl.length} complete</p></div>
+        <b style="margin-left:auto;font-size:22px;color:var(--green-d)">${pct}%</b>
+      </div>
+      <div class="progress"><i style="width:${pct}%"></i></div>
+      <div style="margin-top:8px">
+        ${cl.map(c=>`<div class="check ${c.ok?'ok':'no'}"><span class="bx">${c.ok?ICON.check:''}</span><span class="tx"><b>${esc(c.name)}</b><small>${esc(c.note)} · ${c.ok?fmtDay(E.dkey(new Date(c.at))):'Pending'}</small></span></div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function statusChip(t){
+  if (t.status==='served') return `<span class="chip served">${t.priority?'⭐ ':''}SERVED</span>`;
+  if (t.status==='queued') return `<span class="chip queued">IN QUEUE</span>`;
+  if (t.status==='rollover') return t.redeemedAt ? `<span class="chip served">⭐ SERVED</span>` : `<span class="chip rollover">ROLLOVER</span>`;
+  if (t.status==='missed') return `<span class="chip missed">NOT USED</span>`;
+  return `<span class="chip ready">READY</span>`;
+}
+function vHistory(){
+  const tk = ME().tickets, days = Object.keys(tk).sort().reverse();
+  let served=0, ro=0, lost=0;
+  days.forEach(d=>MEALS.forEach(m=>{ const t=tk[d][m.id]; if(!t) return;
+    if (t.status==='served' || (t.status==='rollover'&&t.redeemedAt)) served++;
+    if (t.status==='rollover') ro++; }));
+  return `
+    <h2 class="title">Meal History</h2>
+    <p class="sub">Every gate check-in and plate handover, with times.</p>
+    <div class="stats3">
+      <div class="stat"><b style="color:var(--green-d)">${served}</b><span>Meals eaten</span></div>
+      <div class="stat"><b style="color:var(--violet)">${ro}</b><span>Rollovers</span></div>
+      <div class="stat"><b>${lost}</b><span>Meals lost</span></div>
+    </div>
+    ${days.map(d=>`
+      <div class="day"><h4>${fmtDay(d)}</h4><div class="card" style="padding:12px 16px;margin:0">
+        ${MEALS.map(m=>{ const t=tk[d][m.id]; if(!t) return '';
+          let sub = esc(t.menu);
+          if (t.status==='served') sub += ` · Served ${fmtTime(t.servedAt)}`;
+          else if (t.status==='queued') sub += ` · In queue since ${fmtTime(t.checkedInAt)}`;
+          else if (t.status==='rollover') sub += t.redeemedAt ? ` · Food ran out, priority-served ${fmtTime(t.redeemedAt)}` : ` · Food finished ${fmtTime(t.rolledAt)}`;
+          else if (t.status==='ready') sub += ` · ${m.time}`;
+          return `<div class="hitem"><span class="em">${m.emoji}</span><span class="tx"><b>${m.name}</b><small>${sub}</small></span>${statusChip(t)}</div>`;
+        }).join('')}
+      </div></div>`).join('')}`;
+}
+
+/* ---------- Official / kitchen views ---------- */
+function kitchenMeta(){
+  return `<div style="display:flex;align-items:center;gap:8px;margin:-4px 0 14px;flex-wrap:wrap">${onlineState()}<span class="status-pill local">Kitchen Gate A · ${remaining(K())} plates left</span></div>`;
+}
+function peopleRow(){
+  const dot = {queued:'var(--amber)', served:'var(--green)', rollover:'var(--violet)'};
+  return `<div class="people" role="group" aria-label="Corps member at the gate">${Object.keys(W.members).map(c=>{
+    const p = W.members[c].profile, t = T(U.meal, c);
+    const s = t.status==='rollover' && t.redeemedAt ? 'served' : t.status;
+    return `<button class="person" data-scan="${esc(c)}" aria-pressed="${c===U.scan}"><span class="av">${initials(p)}</span>${esc(p.first)}${dot[s]?`<span class="sd" style="background:${dot[s]}"></span>`:''}</button>`;
+  }).join('')}</div>`;
+}
+function vScan(){
+  const code = U.scan, mb = W.members[code], p = mb.profile, t = T(U.meal, code), st = t.status, k = K();
+  const ro = st==='rollover' && !t.redeemedAt;
+  const camOk = 'BarcodeDetector' in window && navigator.mediaDevices;
+  return `
+    <h2 class="title">Official Scanner</h2>
+    <p class="sub">Two-step verification. A ticket is only used when the plate is handed over.</p>
+    ${kitchenMeta()}
+    ${mealSeg(code)}
+    <div class="sec" style="margin-top:4px">Corps member at the gate</div>
+    ${peopleRow()}
+    <div class="card">
+      <div class="scanee">
+        <div class="avatar">${initials(p)}</div>
+        <div style="min-width:0"><b>${esc(p.first)} ${esc(p.last)}</b><small>${esc(code)} · P${p.platoon}</small></div>
+        ${statusChip(t)}
+      </div>
+      <div id="camBox" class="hidden"></div>
+      <div class="stack">
+        <button class="btn amber" data-act="checkin" ${st!=='ready'?'disabled':''}><span class="num">1</span>Scan Gate Check-In</button>
+        ${ro
+          ? `<button class="btn violet" data-act="serve">${ICON.star}Serve Priority Pass (next batch)</button>`
+          : `<button class="btn primary" data-act="serve" ${st!=='queued'?'disabled':''}><span class="num">2</span>Confirm Plate Handover</button>`}
+        ${camOk ? `<button class="btn ghost" data-act="camera">${ICON.cam}Scan real QR with camera</button>` : ''}
+      </div>
+      ${st==='queued' ? `<div class="msg warn" style="margin-top:12px">Checked in at ${fmtTime(t.checkedInAt)} · #${t.queuePos} in queue · 1 ration reserved</div>` : ''}
+      ${st==='served' ? `<div class="msg info" style="margin-top:12px">✅ Served at ${fmtTime(t.servedAt)}. This ticket can't be used again for ${MEAL[U.meal].name}.</div>` : ''}
+      ${ro && remaining(k)===0 ? `<div class="msg vio" style="margin-top:12px">Food finished. Add the next batch on the <b>Rations</b> tab, then serve this priority pass first.</div>` : ''}
+      ${t.redeemedAt ? `<div class="msg info" style="margin-top:12px">⭐ Priority pass redeemed at ${fmtTime(t.redeemedAt)}.</div>` : ''}
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><b>Quick controls</b><small style="color:var(--muted)">${MEAL[U.meal].name}</small></div>
+      <div class="kgrid" style="margin-bottom:10px">
+        <div class="kbox"><span>Plates left</span><b>${remaining(k)}</b></div>
+        <div class="kbox"><span>In queue</span><b>${inQueue()}</b></div>
+      </div>
+      <button class="btn danger" data-act="finish" ${remaining(k)===0?'disabled':''}>${ICON.alert}Simulate Food Finished</button>
+    </div>
+    <button class="hint" data-go="member">${ICON.arrow}<span>Switch to <b>Corps</b> view to see the ticket update live.</span></button>`;
+}
+
+function vRations(){
+  const k = K(), rem = remaining(k), q = inQueue();
+  const tone = rem===0 ? 'zero' : rem <= q ? 'low' : '';
+  const tot = Math.max(1, k.cooked), short = Math.max(0, q - rem);
+  return `
+    <h2 class="title">Ration Inventory</h2>
+    <p class="sub">Live count for ${MEAL[U.meal].name}. Updates with every plate handed over.</p>
+    ${kitchenMeta()}
+    ${mealSeg(U.scan)}
+    <div class="card">
+      <div class="kgrid">
+        <div class="kbox big ${tone}">
+          <div><span>Remaining plates</span><b>${rem}</b></div>
+          <div class="stepper"><button data-act="minus" aria-label="Serve one plate">−</button><button data-act="plus" aria-label="Add one plate">+</button></div>
+        </div>
+        <div class="kbox"><span>Total cooked</span><b>${k.cooked}</b></div>
+        <div class="kbox"><span>Plates served</span><b style="color:var(--green-d)">${k.served}</b></div>
+        <div class="kbox"><span>In-queue reserved</span><b style="color:var(--amber-d)">${q}</b></div>
+        <div class="kbox"><span>Priority rollovers</span><b style="color:var(--violet)">${k.rollovers}</b></div>
+      </div>
+      <div class="meter">
+        <i style="width:${k.served/tot*100}%;background:var(--green)"></i>
+        <i style="width:${Math.min(q,rem)/tot*100}%;background:var(--amber)"></i>
+        <i style="width:${Math.max(0,rem-q)/tot*100}%;background:#CBD5E1"></i>
+      </div>
+      <div class="legend"><span><i style="background:var(--green)"></i>Served</span><span><i style="background:var(--amber)"></i>Reserved</span><span><i style="background:#CBD5E1"></i>Free</span></div>
+      ${short>0 && rem>0 ? `<div class="risk">${ICON.alert}<span>${short} corps member${short>1?'s':''} in the queue won't get a plate. They will be protected with a Priority Rollover Pass automatically.</span></div>`:''}
+      ${rem===0 ? `<div class="risk" style="background:var(--red-l);color:#7f1d1d">${ICON.alert}<span>Food finished. Nobody in the queue was marked as fed. All were issued priority passes.</span></div>`:''}
+    </div>
+    <div class="stack">
+      <button class="btn danger" data-act="finish" ${rem===0?'disabled':''}>${ICON.alert}Simulate Food Finished (Set Rations to 0)</button>
+      <button class="btn ghost" data-act="batch">${ICON.plate}Add Next Batch (+50 plates)</button>
+    </div>
+    <p class="sub" style="margin-top:12px;font-size:12px;text-align:center">Tip: tap − to serve the next person in the queue.</p>`;
+}
+
+function vAudit(){
+  const k = K(); const rows = []; let mx = 1, ts = 0, tr = 0;
+  for (let p=1;p<=PLATOONS;p++){ const v = k.platoons[p]||{s:0,r:0}; rows.push([p,v]); mx = Math.max(mx, v.s+v.r); ts+=v.s; tr+=v.r; }
+  const dc = {served:'var(--green)', queued:'var(--amber)', rollover:'var(--violet)', alert:'var(--red)', info:'#94A3B8'};
+  const myP = P().platoon;
+  return `
+    <h2 class="title">Platoon Ration Audit</h2>
+    <p class="sub">${MEAL[U.meal].name} · ${fmtDay(today())}. Every plate is backed by a timestamped check-in.</p>
+    ${mealSeg(U.scan)}
+    <div class="stats3">
+      <div class="stat"><b style="color:var(--green-d)">${ts}</b><span>Served</span></div>
+      <div class="stat"><b style="color:var(--violet)">${tr}</b><span>Rollovers</span></div>
+      <div class="stat"><b>${inQueue()}</b><span>In queue</span></div>
+    </div>
+    <div class="card">
+      <table class="audit">
+        <thead><tr><th>Platoon</th><th class="n">Served</th><th class="n">Rollover</th></tr></thead>
+        <tbody>${rows.map(([p,v])=>`<tr class="${p===myP?'me':''}"><td><b>Platoon ${p}</b><div class="bar"><i style="width:${v.s/mx*100}%;background:var(--green)"></i><i style="width:${v.r/mx*100}%;background:var(--violet)"></i></div></td><td class="n">${v.s}</td><td class="n" style="color:${v.r?'var(--violet)':'inherit'}">${v.r}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <div class="sec">Activity log</div>
+    <div class="card" style="padding:6px 16px">
+      <ul class="log">${W.log.slice(0,15).map(l=>`<li><time>${fmtTime(l.t)}</time><span class="d" style="background:${dc[l.type]||'#94A3B8'}"></span><span>${esc(l.msg)}</span></li>`).join('') || '<li>No activity yet.</li>'}</ul>
+    </div>`;
+}
+
+/* =========================================================
+   Sheets (settings, profile, install help)
+   ========================================================= */
+function openSheet(html){ $('#sheet').innerHTML = `<div class="grab"></div>${html}`; $('#sheet').classList.add('open'); $('#scrim').classList.add('open'); }
+function closeSheet(){ $('#sheet').classList.remove('open'); $('#scrim').classList.remove('open'); }
+
+function settingsSheet(){
+  const mode = net==='local' ? 'On-device mode (no server found)' : net==='live' ? 'Connected to CampPass server · live sync on' : 'Server unreachable · changes saved on this phone';
+  openSheet(`
+    <h3>Settings</h3>
+    <p>${esc(mode)}</p>
+    ${!isStandalone() ? `<button class="srow" data-act="install"><span class="ic">📲</span><span style="flex:1"><b>Install app</b><small>Add CampPass to your Home Screen</small></span></button>`:''}
+    <button class="srow" data-act="whoami"><span class="ic">🪪</span><span style="flex:1"><b>Signed in as</b><small>${esc(P().first)} ${esc(P().last)} · ${esc(P().stateCode)}</small></span><span style="color:var(--muted);font-size:13px;font-weight:700">Change</span></button>
+    <button class="srow" data-act="editname"><span class="ic">✏️</span><span style="flex:1"><b>Edit name</b><small>Use your own name for the demo video</small></span></button>
+    <button class="srow" data-act="reset"><span class="ic">🔄</span><span style="flex:1"><b>Reset Demo State</b><small>Fresh tickets and ration counts on every phone</small></span></button>
+    <div class="srow"><span class="ic"><img src="icons/icon.svg" width="26" height="26" alt="" style="border-radius:7px"></span><span style="flex:1"><b>CampPass v1.0</b><small>Two-step meal verification for NYSC camps · works offline</small></span></div>
+    <button class="btn ghost" data-act="close" style="margin-top:8px">Done</button>`);
+}
+function whoSheet(){
+  openSheet(`
+    <h3>Who is using this phone?</h3>
+    <p>Pick a corps member. On a second phone, pick someone else to demo the queue.</p>
+    ${Object.keys(W.members).map(c=>{ const p=W.members[c].profile; return `<button class="srow" data-me="${esc(c)}"><span class="ic" style="font-weight:800;color:var(--green-d)">${initials(p)}</span><span style="flex:1"><b>${esc(p.first)} ${esc(p.last)}</b><small>${esc(c)} · Platoon ${p.platoon}</small></span>${c===U.me?ICON.check:''}</button>`; }).join('')}`);
+}
+function nameSheet(){
+  const p = P();
+  openSheet(`
+    <h3>Edit name</h3>
+    <p>Shown on your Camp ID and meal ticket.</p>
+    <form id="nameForm" class="stack">
+      ${[['first','First name',p.first],['last','Last name',p.last]].map(([n,l,v])=>`
+        <label style="display:block;font-size:13px;font-weight:700;color:var(--slate-2)">${l}
+          <input name="${n}" value="${esc(v)}" required maxlength="40" autocomplete="off" style="display:block;width:100%;margin-top:6px;padding:14px;border-radius:14px;border:1.5px solid var(--line);font:inherit;font-size:16px;background:var(--bg)">
+        </label>`).join('')}
+      <button class="btn primary" type="submit">Save</button>
+    </form>`);
+  $('#nameForm').addEventListener('submit', e=>{
+    e.preventDefault(); const f = new FormData(e.target);
+    closeSheet(); act({type:'profile', code:U.me, first:f.get('first'), last:f.get('last'), meal:undefined});
+  });
+}
+function iosSheet(){
+  openSheet(`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px"><img src="icons/icon-192.png" width="52" height="52" style="border-radius:14px" alt=""><div><h3>Install CampPass</h3><small style="color:var(--muted)">Works offline, opens full screen</small></div></div>
+    <div class="ios-steps">
+      <div><span class="n">1</span><span>Tap the <b>Share</b> button <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M12 15V3M7 8l5-5 5 5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg> in Safari</span></div>
+      <div><span class="n">2</span><span>Scroll and tap <b>Add to Home Screen</b></span></div>
+      <div><span class="n">3</span><span>Tap <b>Add</b>. CampPass appears on your Home Screen.</span></div>
+    </div>
+    <button class="btn primary" data-act="close">Got it</button>`);
+}
+
+/* =========================================================
+   Camera scanning (real QR, where the browser supports it)
+   ========================================================= */
+let camStream = null, camLoop = null;
+async function startCamera(){
+  const box = $('#camBox'); if (!box) return;
+  try{
+    camStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    box.className = 'scanner'; box.innerHTML = '<video playsinline muted autoplay></video><div class="frame"></div><div class="laser"></div>';
+    const v = box.querySelector('video'); v.srcObject = camStream; await v.play();
+    const det = new BarcodeDetector({formats:['qr_code']});
+    camLoop = setInterval(async ()=>{
+      try{
+        const codes = await det.detect(v); if (!codes.length) return;
+        const val = codes[0].rawValue || ''; stopCamera();
+        const parts = val.split('|');
+        if (parts[0] !== 'CAMPPASS' || !W.members[parts[2]]) return fail('Not a valid CampPass ticket');
+        const meal = (parts[4]||'').toLowerCase();
+        if (parts[3] !== today()) return fail('This ticket is for a different day');
+        if (MEAL[meal]) U.meal = meal;
+        U.scan = parts[2];
+        const t = T(U.meal, U.scan);
+        if (t.status==='ready') act({type:'checkin', code:U.scan});
+        else if (t.status==='queued' || (t.status==='rollover' && !t.redeemedAt)) act({type:'serve', code:U.scan});
+        else { toast('Already served for this meal', 'dark'); render(); }
+      }catch(e){}
+    }, 300);
+  }catch(e){ stopCamera(); fail('Camera not available. Use the buttons instead.'); }
+}
+function stopCamera(){
+  clearInterval(camLoop); camLoop = null;
+  if (camStream){ camStream.getTracks().forEach(t=>t.stop()); camStream = null; }
+  const box = $('#camBox'); if (box){ box.className='hidden'; box.innerHTML=''; }
+}
+
+/* =========================================================
+   Install prompt (Android/Chrome native + iOS instructions)
+   ========================================================= */
+let deferredPrompt = null, splashDone = false;
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+function showInstall(){
+  if (isStandalone()) return;
+  let snoozed = 0; try { snoozed = +localStorage.getItem('camppass.installSnooze')||0; } catch(e){}
+  if (Date.now() - snoozed < 20*60000) return;
+  if (deferredPrompt || isIOS()) $('#install').classList.add('show');
+}
+async function doInstall(){
+  $('#install').classList.remove('show');
+  if (deferredPrompt){
+    deferredPrompt.prompt();
+    const {outcome} = await deferredPrompt.userChoice; deferredPrompt = null;
+    if (outcome==='accepted') toast('Installing CampPass…');
+  } else if (isIOS()) iosSheet();
+  else openSheet(`<h3>Install CampPass</h3><p>Open your browser menu <b>⋮</b> and tap <b>Install app</b> or <b>Add to Home screen</b>.</p><button class="btn primary" data-act="close">Got it</button>`);
+}
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; if (splashDone) setTimeout(showInstall, 600); });
+window.addEventListener('appinstalled', () => { $('#install').classList.remove('show'); toast('CampPass installed 🎉'); });
+
+/* =========================================================
+   Events
+   ========================================================= */
+document.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const d = b.dataset;
+  if (d.role){ if (U.role!==d.role){ U.role = d.role; saveAll(); render(); scrollTo({top:0}); buzz(8);} return; }
+  if (d.tab){ if (U.role==='kitchen') U.ktab = d.tab; else U.tab = d.tab; saveAll(); render(); scrollTo({top:0}); buzz(5); return; }
+  if (d.meal){ U.meal = d.meal; saveAll(); render(); buzz(5); return; }
+  if (d.scan){ U.scan = d.scan; saveAll(); render(); buzz(5); return; }
+  if (d.me){ U.me = d.me; U.scan = d.me; saveAll(); closeSheet(); render(); toast(`Signed in as ${W.members[d.me].profile.first}`); return; }
+  if (d.go){ U.role = d.go; if (d.go==='kitchen'){ U.ktab='scan'; U.scan=U.me; } else U.tab='meal'; saveAll(); render(); scrollTo({top:0, behavior:'smooth'}); return; }
+  const handlers = {
+    checkin: ()=>act({type:'checkin', code:U.scan}),
+    serve:   ()=>act({type:'serve', code:U.scan}),
+    finish:  ()=>act({type:'finish'}),
+    minus:   ()=>act({type:'serveOther'}),
+    plus:    ()=>act({type:'addPlates', n:1}),
+    batch:   ()=>act({type:'addPlates', n:50}),
+    camera:  ()=> camStream ? stopCamera() : startCamera(),
+    close: closeSheet,
+    install: ()=>{ closeSheet(); doInstall(); },
+    editname: nameSheet,
+    whoami: whoSheet,
+    reset: ()=>{ closeSheet(); act({type:'reset', meal:undefined}); },
+  };
+  if (d.act && handlers[d.act]) handlers[d.act]();
+});
+$('#menuBtn').addEventListener('click', settingsSheet);
+$('#scrim').addEventListener('click', closeSheet);
+$('#installGo').addEventListener('click', doInstall);
+$('#installX').addEventListener('click', ()=>{ $('#install').classList.remove('show'); try{ localStorage.setItem('camppass.installSnooze', Date.now()); }catch(e){} });
+addEventListener('scroll', ()=>$('#hdr').classList.toggle('scrolled', scrollY>4), {passive:true});
+addEventListener('resize', placeThumb);
+addEventListener('storage', e => { if (e.key===WKEY){ const w = read(WKEY); if (w && w.v===2){ W = w; render(); } } });
+document.addEventListener('visibilitychange', ()=>{ if (!document.hidden){ render(); if (net!=='local' && (!sse || sse.readyState===2)) connect(); } });
+setInterval(()=>{ if (outbox.length && net!=='local') flush(); }, 10000);
+
+/* =========================================================
+   Boot
+   ========================================================= */
+ensure(); render();
+setTimeout(()=>{ $('#splash').classList.add('gone'); splashDone = true; placeThumb(); setTimeout(showInstall, 1200); }, 1400);
+if (location.protocol === 'file:') setNet('local'); else connect();
+if ('serviceWorker' in navigator && location.protocol !== 'file:'){
+  addEventListener('load', ()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+})();
+</script>
+</body>
+</html>

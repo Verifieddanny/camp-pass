@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: camppass
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: CAMP_TZ_OFFSET_MIN
+        value: "60"
