@@ -41,17 +41,24 @@
   };
 
   const PEOPLE = [
-    { first: 'Adaeze', last: 'Okonkwo', stateCode: DEMO_CODE, platoon: 4, hostel: 'Block B', bunk: 'Bunk 14', institution: 'University of Nigeria, Nsukka', course: 'Computer Science', blood: 'O+', callUp: 'NYSC/UNN/2026/88214' },
-    { first: 'Tunde', last: 'Bakare', stateCode: 'LA/26C/3307', platoon: 2, hostel: 'Block D', bunk: 'Bunk 03', institution: 'University of Ibadan', course: 'Economics', blood: 'A+', callUp: 'NYSC/UI/2026/41290' },
-    { first: 'Fatima', last: 'Musa', stateCode: 'LA/26C/5120', platoon: 7, hostel: 'Block A', bunk: 'Bunk 22', institution: 'Ahmadu Bello University', course: 'Microbiology', blood: 'B+', callUp: 'NYSC/ABU/2026/10457' },
-    { first: 'Chinedu', last: 'Eze', stateCode: 'LA/26C/1894', platoon: 4, hostel: 'Block B', bunk: 'Bunk 15', institution: 'Federal University of Technology, Owerri', course: 'Civil Engineering', blood: 'O-', callUp: 'NYSC/FUTO/2026/77301' },
-    { first: 'Blessing', last: 'Akpan', stateCode: 'LA/26C/6631', platoon: 9, hostel: 'Block C', bunk: 'Bunk 08', institution: 'University of Uyo', course: 'Mass Communication', blood: 'AB+', callUp: 'NYSC/UNIUYO/2026/30118' }
+    { first: 'Adaeze', last: 'Okonkwo', stateCode: DEMO_CODE, platoon: 4, hostel: 'Block B', bunk: 'Bunk 14' },
+    { first: 'Tunde', last: 'Bakare', stateCode: 'LA/26C/3307', platoon: 2, hostel: 'Block D', bunk: 'Bunk 03' },
+    { first: 'Fatima', last: 'Musa', stateCode: 'LA/26C/5120', platoon: 7, hostel: 'Block A', bunk: 'Bunk 22' },
+    { first: 'Chinedu', last: 'Eze', stateCode: 'LA/26C/1894', platoon: 4, hostel: 'Block B', bunk: 'Bunk 15' },
+    { first: 'Blessing', last: 'Akpan', stateCode: 'LA/26C/6631', platoon: 9, hostel: 'Block C', bunk: 'Bunk 08' }
   ];
   const FIRSTS = ['Emeka', 'Aisha', 'Segun', 'Ngozi', 'Ibrahim', 'Chiamaka', 'Yusuf', 'Funmilayo', 'Obinna', 'Zainab', 'Kelechi', 'Halima', 'Damilola', 'Uche', 'Hauwa', 'Tobi', 'Amarachi', 'Sani', 'Bukola', 'Ifeanyi', 'Kemi', 'Musa', 'Ebere', 'Femi', 'Nkechi', 'Abdullahi', 'Temitope', 'Chidi', 'Rukayat', 'Gbenga', 'Ada', 'Bashir', 'Folake', 'Nnamdi', 'Hadiza'];
   const LASTS = ['Okafor', 'Bello', 'Adeyemi', 'Nwosu', 'Abubakar', 'Okeke', 'Lawal', 'Oladipo', 'Eze', 'Usman', 'Obi', 'Danjuma', 'Afolabi', 'Igwe', 'Garba', 'Ogunleye', 'Chukwu', 'Aliyu', 'Balogun', 'Onyeka', 'Adebayo', 'Ibrahim', 'Okoro', 'Fashola', 'Nnadi', 'Shehu', 'Oyelaran', 'Anozie', 'Yakubu', 'Ojo', 'Mbah', 'Sule', 'Adewale', 'Ezeh', 'Mohammed'];
-  const SCHOOLS = ['University of Lagos', 'Obafemi Awolowo University', 'University of Benin', 'Bayero University Kano', 'Lagos State University', 'Covenant University', 'University of Ilorin', 'Nnamdi Azikiwe University'];
-  const COURSES = ['Accounting', 'Law', 'Biochemistry', 'Electrical Engineering', 'English', 'Nursing', 'Political Science', 'Architecture', 'Statistics', 'Agriculture'];
-  const BLOOD = ['O+', 'A+', 'B+', 'O-', 'AB+'];
+  const BATCH = '2026 Batch C · Stream I';
+  const CAMP = 'Iyana-Ipaja Orientation Camp, Lagos';
+  const CLEARANCE = [
+    { id: 'reg', name: 'Registration & Documentation', note: 'Verified at registration desk' },
+    { id: 'clinic', name: 'Camp Clinic Medical Check', note: 'Fit for camp activities' },
+    { id: 'kit', name: 'Kit Issue', note: 'Khaki, white kit, jungle boots, crested vest' },
+    { id: 'obs', name: "OBS (Man O'War) Drills", note: 'Complete the obstacle course' },
+    { id: 'saed', name: 'SAED Training', note: 'Skill acquisition programme' },
+    { id: 'pay', name: 'Bank & Allowance Verification', note: 'Account confirmed' }
+  ];
 
   const pad = (n) => String(n).padStart(2, '0');
   const dkey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -70,9 +77,7 @@
       const blocks = ['A', 'B', 'C', 'D', 'E'];
       out.push({
         first: FIRSTS[i], last: LASTS[(i * 7) % LASTS.length], stateCode: code,
-        platoon: 1 + (i % PLATOONS), hostel: `Block ${blocks[i % 5]}`, bunk: `Bunk ${pad(1 + Math.floor(r() * 30))}`,
-        institution: SCHOOLS[i % SCHOOLS.length], course: COURSES[i % COURSES.length], blood: BLOOD[i % BLOOD.length],
-        callUp: `NYSC/2026/${10000 + Math.floor(r() * 89999)}`
+        platoon: 1 + (i % PLATOONS), hostel: `Block ${blocks[i % 5]}`, bunk: `Bunk ${pad(1 + Math.floor(r() * 30))}`
       });
     }
     return out;
@@ -80,7 +85,7 @@
 
   function freshDayTickets() {
     const out = {};
-    MEALS.forEach((m) => (out[m.id] = { status: 'ready', menu: TODAY_MENU[m.id] }));
+    MEALS.forEach((m) => (out[m.id] = { status: 'ready' }));
     return out;
   }
 
@@ -104,16 +109,11 @@
     }
     tickets[today] = freshDayTickets();
     const d6 = shiftDay(today, -6), d5 = shiftDay(today, -5), d4 = shiftDay(today, -4);
+    const cleared = { reg: at(d6, 10, 12), clinic: at(d6, 12, 40), kit: at(d5, 9, 15), pay: at(d4, 14, 2) };
+    if (idx % 2 === 1) cleared.obs = at(d4, 8, 30);
     return {
-      profile: Object.assign({ batch: '2026 Batch C · Stream I', camp: 'Iyana-Ipaja Orientation Camp, Lagos' }, person),
-      clearance: [
-        { id: 'reg', name: 'Registration & Documentation', note: 'Verified at registration desk', ok: true, at: at(d6, 10, 12) },
-        { id: 'clinic', name: 'Camp Clinic Medical Check', note: 'Fit for camp activities', ok: true, at: at(d6, 12, 40) },
-        { id: 'kit', name: 'Kit Issue', note: 'Khaki, white kit, jungle boots, crested vest', ok: true, at: at(d5, 9, 15) },
-        { id: 'obs', name: "OBS (Man O'War) Drills", note: 'Complete the obstacle course', ok: idx % 2 === 1, at: at(d4, 8, 30) },
-        { id: 'saed', name: 'SAED Training', note: 'Skill: ICT / Web Development', ok: false },
-        { id: 'pay', name: 'Bank & Allowance Verification', note: 'BVN and account confirmed', ok: true, at: at(d4, 14, 2) }
-      ],
+      profile: person,
+      cleared,
       tickets
     };
   }
@@ -139,7 +139,7 @@
     now = now || Date.now();
     const members = {};
     allPeople().forEach((p, i) => (members[p.stateCode] = seedMember(p, today, i)));
-    const w = { v: 3, rev: 1, members, kitchen: {}, log: [] };
+    const w = { v: 4, rev: 1, members, kitchen: {}, log: [] };
     w.kitchen[today] = freshKitchen();
     seedToday(w, today, now);
     addLog(w, now - 60000, 'info', 'Kitchen opened: 40 plates cooked per meal');
@@ -302,5 +302,5 @@
     return res;
   }
 
-  return { MEALS, MEAL, PLATOONS, DEMO_CODE, VERSION: 3, dkey, shiftDay, currentMeal, seedWorld, ensureDay, apply, stats, queuePos, pendingRollover, token };
+  return { MEALS, MEAL, PLATOONS, DEMO_CODE, VERSION: 4, BATCH, CAMP, CLEARANCE, TODAY_MENU, dkey, shiftDay, currentMeal, seedWorld, ensureDay, apply, stats, queuePos, pendingRollover, token };
 });

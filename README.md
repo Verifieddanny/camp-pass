@@ -21,7 +21,7 @@ READY ──(gate check-in)──▶ IN QUEUE ──(plate handover)──▶ SE
 ## Features
 
 - **Corps Member view:** live meal ticket with QR code, a status bar showing your queue position, and app colours that follow your ticket status (green ready, amber in queue, deep green served, purple priority). Also Camp ID, Hostel Bunk Pass, Camp Clearance and meal history. Meals: Breakfast from 7:30 AM, Lunch from 2:00 PM, Dinner from 6:30 PM.
-- **Official / Kitchen view:** Gate check-in (search 40 corps members or scan their QR), a live queue where serving the person at the front moves everyone up on every staff phone, ration inventory, platoon audit and activity log. Every count is derived from real corps member records on the server.
+- **Official / Kitchen view:** Gate check-in (search 40 corps members or scan their QR with the camera, on iPhone and Android), a live queue where serving the person at the front moves everyone up on every staff phone, ration inventory, platoon audit and activity log. Every count is derived from real corps member records on the server.
 - **Live sync:** a kitchen phone scans and the corps member's phone updates instantly (Server-Sent Events)
 - **Offline-first:** the service worker caches the whole app. Actions taken with no signal are saved on the device and synced when the connection returns.
 - **Installable:** add-to-Home-Screen prompt (Android) and guided install (iPhone), splash screen, standalone full-screen app
@@ -35,7 +35,7 @@ READY ──(gate check-in)──▶ IN QUEUE ──(plate handover)──▶ SE
 | PWA | `manifest.json`, `sw.js` service worker, PNG and SVG icons |
 | Back end | Node.js and Express REST API, Server-Sent Events, Redis (Upstash) or JSON file storage |
 | Shared logic | `public/engine.js`, the same state machine running on server and phone |
-| QR | `qrcode-generator` (MIT), bundled locally |
+| QR | `qrcode-generator` (MIT) to draw codes, `jsQR` (Apache-2.0) and the native BarcodeDetector to scan them, bundled locally |
 
 ## API
 

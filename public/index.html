@@ -105,7 +105,7 @@ h2.title{font-size:26px;letter-spacing:-.6px;margin:10px 0 2px}
 .qr .over{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
 .qr .over .big{width:84px;height:84px;border-radius:50%;display:grid;place-items:center;color:#fff;background:var(--green);box-shadow:0 10px 30px rgba(0,135,81,.35);animation:pop .5s cubic-bezier(.2,1.5,.4,1) both}
 .ticket .code{text-align:center;font:700 13px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);letter-spacing:1px;margin-top:-4px}
-.ticket .msg{border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.45;margin-top:12px}
+.msg{border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.45;margin-top:12px}
 .msg.info{background:var(--green-l);color:#065f3c}
 .msg.warn{background:var(--amber-l);color:#7c2d12}
 .msg.vio{background:var(--violet-l);color:#3b0764}
@@ -325,6 +325,8 @@ nav.tabs .nb.cnt{min-width:18px;height:18px;top:0;left:calc(50% + 6px);font-size
 @keyframes fresh{0%{background:var(--amber-l);transform:translateX(-8px)}100%{background:transparent;transform:none}}
 .qhead.zero .kbox:first-child{background:var(--red-l)}
 .qhead.zero .kbox:first-child b{color:var(--red)}
+.scanbig{min-height:64px;font-size:17px;margin-bottom:14px}
+.sheet .scanner{margin-bottom:12px;max-height:56dvh}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
@@ -470,7 +472,7 @@ function adoptServer(world){
     if (now === 'served') { toast('Plate handed over · Served', 'green'); fx('served'); }
     if (now === 'rollover') { toast('Food finished · Priority Rollover Pass issued', 'violet'); buzz([60,60,60]); }
   }
-  if (!document.querySelector('.sheet.open input') && !camStream) render();
+  if (!document.querySelector('.sheet.open input')) render();
 }
 
 let sse = null;
@@ -647,7 +649,6 @@ function render(){
   const search = document.activeElement && document.activeElement.id === 'gateSearch';
   app.innerHTML = `${isK ? '' : statusBar()}<div class="${animate?'view':''}">${html}</div>`;
   if (search){ const i = $('#gateSearch'); if (i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
-  if (camStream) stopCamera();
   filterGate();
 }
 function filterGate(){
@@ -726,7 +727,7 @@ function vMeal(){
     ? `<div><span>Checked in</span><b>${fmtTime(t.checkedInAt)}</b></div><div><span>Served</span><b>${fmtTime(t.servedAt)}</b></div>`
     : st==='rollover'
     ? `<div><span>Checked in</span><b>${fmtTime(t.checkedInAt)}</b></div><div><span>${t.redeemedAt?'Served':'Food finished'}</span><b>${fmtTime(t.redeemedAt||t.rolledAt)}</b></div>`
-    : `<div><span>Serving</span><b>${m.time.replace(' – ','–')}</b></div><div><span>On the menu</span><b>${esc(t.menu)}</b></div>`;
+    : `<div><span>Serving</span><b>${m.time.replace(' – ','–')}</b></div><div><span>On the menu</span><b>${esc(t.menu||E.TODAY_MENU[U.meal])}</b></div>`;
   const open = st==='ready' || st==='queued' || (st==='rollover' && !t.redeemedAt);
   const kind = st==='rollover' && !t.redeemedAt ? 'PRIORITY' : 'MEAL';
   return `
@@ -770,23 +771,19 @@ function vId(){
       <div class="grid">
         <div><span>Platoon</span><b>Platoon ${p.platoon}</b></div>
         <div><span>Hostel & bunk</span><b>${esc(p.hostel)}, ${esc(p.bunk)}</b></div>
-        <div><span>Batch</span><b>${esc(p.batch)}</b></div>
-        <div><span>Blood group</span><b>${esc(p.blood)}</b></div>
-        <div style="grid-column:1/-1"><span>Camp</span><b>${esc(p.camp)}</b></div>
+        <div style="grid-column:1/-1"><span>Batch</span><b>${esc(E.BATCH)}</b></div>
+        <div style="grid-column:1/-1"><span>Camp</span><b>${esc(E.CAMP)}</b></div>
       </div>
       <div class="qrrow">
         <div class="qr">${qrSvg(`CAMPPASS|ID|${p.stateCode}|${p.first} ${p.last}|P${p.platoon}|${p.hostel}-${p.bunk}`)}</div>
         <div><div style="margin-bottom:8px">${onlineState()}</div><p>Scannable even with no network. Your pass is stored on this phone.</p></div>
       </div>
     </article>
-    <div class="sec">Details</div>
-    <div class="card" style="padding:4px 16px">
-      ${[['Call-up number',p.callUp],['Institution',p.institution],['Course of study',p.course]].map(([a,b],i)=>`<div class="srow" style="${i?'':'border-top:0'}"><div style="flex:1"><small>${a}</small><b>${esc(b)}</b></div></div>`).join('')}
-    </div>`;
+`;
 }
 
 function vPasses(){
-  const p = P(), cl = ME().clearance, done = cl.filter(c=>c.ok).length, pct = Math.round(done/cl.length*100);
+  const p = P(), cleared = ME().cleared || {}, cl = E.CLEARANCE.map(c=>Object.assign({ok:!!cleared[c.id], at:cleared[c.id]}, c)), done = cl.filter(c=>c.ok).length, pct = Math.round(done/cl.length*100);
   return `
     <h2 class="title">Passes</h2>
     <p class="sub">Your accommodation and clearance, all in one place.</p>
@@ -840,7 +837,7 @@ function vHistory(){
     ${days.map(d=>`
       <div class="day"><h4>${fmtDay(d)}</h4><div class="card" style="padding:12px 16px;margin:0">
         ${MEALS.map(m=>{ const t=tk[d][m.id]; if(!t) return '';
-          let sub = esc(t.menu);
+          let sub = esc(t.menu||E.TODAY_MENU[m.id]);
           if (t.status==='served') sub += ` · Served ${fmtTime(t.servedAt)}`;
           else if (t.status==='queued') sub += ` · In queue since ${fmtTime(t.checkedInAt)}`;
           else if (t.status==='rollover') sub += t.redeemedAt ? ` · Food ran out, priority-served ${fmtTime(t.redeemedAt)}` : ` · Food finished ${fmtTime(t.rolledAt)}`;
@@ -869,13 +866,12 @@ function vGate(){
   const order = {ready:0, rollover:1, queued:2, served:3, missed:4};
   codes.sort((a,b)=> (b===U.me)-(a===U.me) || order[T(U.meal,a).status]-order[T(U.meal,b).status] || W.members[a].profile.first.localeCompare(W.members[b].profile.first));
   const ready = codes.filter(c=>T(U.meal,c).status==='ready').length;
-  const camOk = 'BarcodeDetector' in window && navigator.mediaDevices;
   return `
     <h2 class="title">Kitchen Gate</h2>
     <p class="sub">Step 1: scan or tap a corps member to check them in. They join the live queue on every staff phone.</p>
     ${kitchenMeta()}
     ${mealSeg()}
-    ${camOk ? `<button class="btn dark" data-act="camera" style="margin-bottom:12px">${ICON.cam}Scan ticket QR with camera</button><div id="camBox" class="hidden"></div>` : ''}
+    <button class="btn amber scanbig" data-scanner="checkin">${ICON.cam}Scan QR to check in</button>
     <div class="searchbox">${ICON.scan}<input id="gateSearch" type="search" placeholder="Search name, state code or platoon" value="${esc(U.q)}" autocomplete="off" enterkeyhint="search"></div>
     <div class="sec" style="margin-top:6px">${ready} waiting to check in · ${codes.length} corps members</div>
     <div class="card plist" id="gateList">
@@ -896,6 +892,7 @@ function vQueue(){
     <h2 class="title">Live Queue</h2>
     <p class="sub">Step 2: confirm the plate handover. Everyone behind moves up instantly.</p>
     ${mealSeg()}
+    <button class="btn primary scanbig" data-scanner="serve">${ICON.cam}Scan QR to serve</button>
     <div class="card qhead ${st.remaining===0?'zero':''}">
       <div class="kgrid">
         <div class="kbox"><span>Plates left</span><b>${st.remaining}</b></div>
@@ -988,7 +985,7 @@ function vAudit(){
    Sheets (settings, profile, install help)
    ========================================================= */
 function openSheet(html){ $('#sheet').innerHTML = `<div class="grab"></div>${html}`; $('#sheet').classList.add('open'); $('#scrim').classList.add('open'); }
-function closeSheet(){ $('#sheet').classList.remove('open'); $('#scrim').classList.remove('open'); }
+function closeSheet(){ stopCamera(); $('#sheet').classList.remove('open'); $('#scrim').classList.remove('open'); }
 
 function settingsSheet(){
   const mode = net==='local' ? 'On-device mode (no server found)' : net==='live' ? 'Connected to CampPass server · live sync on' : 'Server unreachable · changes saved on this phone';
@@ -1037,37 +1034,86 @@ function iosSheet(){
 }
 
 /* =========================================================
-   Camera scanning (real QR, where the browser supports it)
+   Camera QR scanner (native BarcodeDetector on Android, jsQR everywhere else incl. iPhone)
    ========================================================= */
-let camStream = null, camLoop = null;
-async function startCamera(){
-  const box = $('#camBox'); if (!box) return;
+let camStream = null, camLoop = null, lastScan = {v:'', t:0};
+function loadJsQR(){
+  if (window.jsQR) return Promise.resolve();
+  return new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'vendor/jsQR.js'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
+}
+function openScanner(mode){
+  const title = mode === 'checkin' ? 'Scan to check in' : 'Scan to serve';
+  const sub = mode === 'checkin' ? 'Point the camera at the meal ticket or Camp ID QR. They join the live queue.' : 'Scan when the plate is handed over. The ticket is marked served.';
+  openSheet(`
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><h3>${title}</h3><span class="chip ${mode==='checkin'?'queued':'served'}">${MEAL[U.meal].name.toUpperCase()}</span></div>
+    <p>${sub}</p>
+    <div class="scanner" id="scanBox"><video playsinline muted autoplay></video><div class="frame"></div><div class="laser"></div></div>
+    <div id="scanMsg" class="msg info" style="margin:0 0 12px">Starting camera…</div>
+    <div class="stack"><button class="btn ghost" data-act="close">Done</button></div>`);
+  startCamera(mode);
+}
+function scanMsg(html, tone='info'){ const m = $('#scanMsg'); if (m){ m.className = `msg ${tone}`; m.style.margin = '0 0 12px'; m.innerHTML = html; } }
+async function startCamera(mode){
+  stopCamera();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ scanMsg('This browser cannot open the camera. Use the Check in and Serve buttons instead.', 'warn'); return; }
   try{
-    camStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
-    box.className = 'scanner'; box.innerHTML = '<video playsinline muted autoplay></video><div class="frame"></div><div class="laser"></div>';
-    const v = box.querySelector('video'); v.srcObject = camStream; await v.play();
-    const det = new BarcodeDetector({formats:['qr_code']});
-    camLoop = setInterval(async ()=>{
-      try{
-        const codes = await det.detect(v); if (!codes.length) return;
-        const val = codes[0].rawValue || ''; stopCamera();
-        const parts = val.split('|');
-        if (parts[0] !== 'CAMPPASS' || !W.members[parts[2]]) return fail('Not a valid CampPass ticket');
-        const meal = (parts[4]||'').toLowerCase();
-        if (parts[3] !== today()) return fail('This ticket is for a different day');
-        if (MEAL[meal]) U.meal = meal;
-        const code = parts[2], t = T(U.meal, code);
-        if (t.status==='ready') act({type:'checkin', code});
-        else if (t.status==='queued' || (t.status==='rollover' && !t.redeemedAt)) act({type:'serve', code});
-        else { toast('Already served for this meal', 'dark'); render(); }
-      }catch(e){}
-    }, 300);
-  }catch(e){ stopCamera(); fail('Camera not available. Use the buttons instead.'); }
+    camStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}, width:{ideal:1280}, height:{ideal:720}}, audio:false});
+  }catch(e){ scanMsg('Camera permission was blocked. Allow camera access for this site in your browser settings, then try again.', 'warn'); return; }
+  const box = $('#scanBox'); if (!box){ stopCamera(); return; }
+  const v = box.querySelector('video'); v.srcObject = camStream;
+  try { await v.play(); } catch(e){}
+  let detect;
+  try{
+    if ('BarcodeDetector' in window && (await BarcodeDetector.getSupportedFormats()).includes('qr_code')){
+      const det = new BarcodeDetector({formats:['qr_code']});
+      detect = async () => { const c = await det.detect(v); return c.length ? c[0].rawValue : null; };
+    }
+  }catch(e){}
+  if (!detect){
+    try { await loadJsQR(); } catch(e){ scanMsg('Scanner could not load. Use the buttons instead.', 'warn'); return; }
+    const cv = document.createElement('canvas'), ctx = cv.getContext('2d', {willReadFrequently:true});
+    detect = async () => {
+      if (!v.videoWidth) return null;
+      const w = 480, h = Math.round(v.videoHeight * w / v.videoWidth);
+      cv.width = w; cv.height = h; ctx.drawImage(v, 0, 0, w, h);
+      const r = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, {inversionAttempts:'dontInvert'});
+      return r ? r.data : null;
+    };
+  }
+  scanMsg('Ready. Hold the QR code inside the frame.');
+  let busy = false;
+  camLoop = setInterval(async () => {
+    if (busy || !camStream) return; busy = true;
+    try{
+      const val = await detect();
+      if (val && !(val === lastScan.v && Date.now() - lastScan.t < 10000)){ lastScan = {v:val, t:Date.now()}; handleScan(val, mode); }
+    }catch(e){}
+    busy = false;
+  }, 220);
+}
+function handleScan(val, mode){
+  const parts = String(val).split('|');
+  if (parts[0] !== 'CAMPPASS' || !W.members[parts[2]]){ buzz([40,30,40]); return scanMsg('Not a CampPass code. Try again.', 'warn'); }
+  const code = parts[2], p = W.members[code].profile;
+  if (parts[1] !== 'ID'){
+    if (parts[3] !== today()){ buzz([40,30,40]); return scanMsg(`${esc(p.first)}'s ticket is for another day.`, 'warn'); }
+    const meal = (parts[4]||'').toLowerCase();
+    if (MEAL[meal] && meal !== U.meal){ U.meal = meal; saveAll(); render(); }
+  }
+  const t = T(U.meal, code), who = `<b>${esc(p.first)} ${esc(p.last)}</b> · ${esc(code)}`;
+  if (mode === 'checkin'){
+    if (t.status === 'ready'){ const r = act({type:'checkin', code}); return r.ok ? scanMsg(`✅ ${who} checked in · #${qpos(U.meal, code)} in queue`, 'info') : scanMsg(esc(r.msg), 'warn'); }
+    if (t.status === 'queued') return scanMsg(`${who} is already in the queue (#${qpos(U.meal, code)}).`, 'warn');
+    if (t.status === 'rollover' && !t.redeemedAt) return scanMsg(`⭐ ${who} holds a Priority Pass. Serve them first on the Queue tab.`, 'vio');
+    return scanMsg(`${who} has already been served for ${MEAL[U.meal].name}.`, 'warn');
+  }
+  if (t.status === 'queued' || (t.status === 'rollover' && !t.redeemedAt)){ const r = act({type:'serve', code}); return r.ok ? scanMsg(`🍽️ ${who} served`, 'info') : scanMsg(esc(r.msg), 'warn'); }
+  if (t.status === 'ready') return scanMsg(`${who} has not checked in at the gate yet.`, 'warn');
+  return scanMsg(`${who} has already been served for ${MEAL[U.meal].name}.`, 'warn');
 }
 function stopCamera(){
   clearInterval(camLoop); camLoop = null;
   if (camStream){ camStream.getTracks().forEach(t=>t.stop()); camStream = null; }
-  const box = $('#camBox'); if (box){ box.className='hidden'; box.innerHTML=''; }
 }
 
 /* =========================================================
@@ -1103,6 +1149,7 @@ document.addEventListener('click', e => {
   if (d.role){ if (U.role!==d.role){ U.role = d.role; saveAll(); render(); scrollTo({top:0}); buzz(8);} return; }
   if (d.tab){ if (U.role==='kitchen') U.ktab = d.tab; else U.tab = d.tab; saveAll(); render(); scrollTo({top:0}); buzz(5); return; }
   if (d.meal){ U.meal = d.meal; saveAll(); render(); buzz(5); return; }
+  if (d.scanner){ openScanner(d.scanner); return; }
   if (d.checkin){ act({type:'checkin', code:d.checkin}); return; }
   if (d.serve){ act({type:'serve', code:d.serve}); return; }
   if (d.me){ U.me = d.me; saveAll(); closeSheet(); render(); toast(`Signed in as ${W.members[d.me].profile.first}`); return; }
@@ -1114,7 +1161,6 @@ document.addEventListener('click', e => {
     minus:   ()=>act({type:'removePlate'}),
     plus:    ()=>act({type:'addPlates', n:1}),
     batch:   ()=>act({type:'addPlates', n:20}),
-    camera:  ()=> camStream ? stopCamera() : startCamera(),
     close: closeSheet,
     install: ()=>{ closeSheet(); doInstall(); },
     editname: nameSheet,
