@@ -1,10 +1,14 @@
 /*
- * CampPass engine: the meal-ticket state machine and demo seed data.
+ * CampPass engine: the meal-ticket state machine and camp records.
  * The same file runs on the server (Node) and in the browser, so the app
  * behaves identically online and offline.
  *
  *   READY --(gate check-in)--> QUEUED --(plate handover)--> SERVED
- *                                 \--(rations hit 0)--> ROLLOVER --(next batch)--> REDEEMED
+ *                                 \--(rations hit 0)--> ROLLOVER --(next batch)--> SERVED (priority)
+ *
+ * Every count (served, queue, rollovers, platoon audit) is derived from the
+ * corps members' own ticket records. The kitchen only stores how many plates
+ * were cooked.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -13,13 +17,21 @@
   'use strict';
 
   const MEALS = [
-    { id: 'breakfast', name: 'Breakfast', emoji: '🍞', time: '7:00 – 9:00 AM', short: '7 AM', hour: 7 },
-    { id: 'lunch', name: 'Lunch', emoji: '🍛', time: '1:00 – 3:00 PM', short: '1 PM', hour: 13 },
-    { id: 'dinner', name: 'Dinner', emoji: '🍲', time: '7:00 – 9:00 PM', short: '7 PM', hour: 19 }
+    { id: 'breakfast', name: 'Breakfast', emoji: '🍞', time: 'From 7:30 AM', short: '7:30 AM', h: 7, m: 30 },
+    { id: 'lunch', name: 'Lunch', emoji: '🍛', time: 'From 2:00 PM', short: '2:00 PM', h: 14, m: 0 },
+    { id: 'dinner', name: 'Dinner', emoji: '🍲', time: 'From 6:30 PM', short: '6:30 PM', h: 18, m: 30 }
   ];
   const MEAL = Object.fromEntries(MEALS.map((m) => [m.id, m]));
   const PLATOONS = 10;
   const DEMO_CODE = 'LA/26C/4012';
+  const COOKED = 40;
+
+  // Which meal is "now": breakfast until 11:30, lunch until 5:30 PM, then dinner.
+  function currentMeal(d) {
+    d = d || new Date();
+    const mins = d.getHours() * 60 + d.getMinutes();
+    return mins < 11 * 60 + 30 ? 'breakfast' : mins < 17 * 60 + 30 ? 'lunch' : 'dinner';
+  }
 
   const TODAY_MENU = { breakfast: 'Bread, tea & omelette', lunch: 'Jollof rice & chicken', dinner: 'Eba & egusi soup' };
   const PAST_MENU = {
@@ -35,6 +47,11 @@
     { first: 'Chinedu', last: 'Eze', stateCode: 'LA/26C/1894', platoon: 4, hostel: 'Block B', bunk: 'Bunk 15', institution: 'Federal University of Technology, Owerri', course: 'Civil Engineering', blood: 'O-', callUp: 'NYSC/FUTO/2026/77301' },
     { first: 'Blessing', last: 'Akpan', stateCode: 'LA/26C/6631', platoon: 9, hostel: 'Block C', bunk: 'Bunk 08', institution: 'University of Uyo', course: 'Mass Communication', blood: 'AB+', callUp: 'NYSC/UNIUYO/2026/30118' }
   ];
+  const FIRSTS = ['Emeka', 'Aisha', 'Segun', 'Ngozi', 'Ibrahim', 'Chiamaka', 'Yusuf', 'Funmilayo', 'Obinna', 'Zainab', 'Kelechi', 'Halima', 'Damilola', 'Uche', 'Hauwa', 'Tobi', 'Amarachi', 'Sani', 'Bukola', 'Ifeanyi', 'Kemi', 'Musa', 'Ebere', 'Femi', 'Nkechi', 'Abdullahi', 'Temitope', 'Chidi', 'Rukayat', 'Gbenga', 'Ada', 'Bashir', 'Folake', 'Nnamdi', 'Hadiza'];
+  const LASTS = ['Okafor', 'Bello', 'Adeyemi', 'Nwosu', 'Abubakar', 'Okeke', 'Lawal', 'Oladipo', 'Eze', 'Usman', 'Obi', 'Danjuma', 'Afolabi', 'Igwe', 'Garba', 'Ogunleye', 'Chukwu', 'Aliyu', 'Balogun', 'Onyeka', 'Adebayo', 'Ibrahim', 'Okoro', 'Fashola', 'Nnadi', 'Shehu', 'Oyelaran', 'Anozie', 'Yakubu', 'Ojo', 'Mbah', 'Sule', 'Adewale', 'Ezeh', 'Mohammed'];
+  const SCHOOLS = ['University of Lagos', 'Obafemi Awolowo University', 'University of Benin', 'Bayero University Kano', 'Lagos State University', 'Covenant University', 'University of Ilorin', 'Nnamdi Azikiwe University'];
+  const COURSES = ['Accounting', 'Law', 'Biochemistry', 'Electrical Engineering', 'English', 'Nursing', 'Political Science', 'Architecture', 'Statistics', 'Agriculture'];
+  const BLOOD = ['O+', 'A+', 'B+', 'O-', 'AB+'];
 
   const pad = (n) => String(n).padStart(2, '0');
   const dkey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -44,49 +61,48 @@
   function rng(seed) { let s = seed >>> 0; return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; }
 
   /* ---------------- Seed ---------------- */
-  function seedKitchenDay(seed) {
-    const r = rng(seed);
-    const base = { breakfast: [150, 118, 19], lunch: [150, 97, 31], dinner: [150, 72, 26] };
-    const out = {};
-    for (const m of MEALS) {
-      const [cooked, served, queue] = base[m.id];
-      const platoons = {};
-      let left = served;
-      for (let p = 1; p <= PLATOONS; p++) {
-        const want = p === PLATOONS ? left : Math.max(0, Math.round(served / PLATOONS + (r() - 0.5) * 6));
-        const s = Math.min(want, left);
-        platoons[p] = { s, r: 0 };
-        left -= s;
-      }
-      out[m.id] = { cooked, served, queue, rollovers: 0, platoons };
+  function allPeople() {
+    const r = rng(2026);
+    const out = PEOPLE.slice();
+    for (let i = 0; i < 35; i++) {
+      const code = `LA/26C/${String(1000 + Math.floor(r() * 8999)).padStart(4, '0')}`;
+      if (out.some((p) => p.stateCode === code)) { i--; continue; }
+      const blocks = ['A', 'B', 'C', 'D', 'E'];
+      out.push({
+        first: FIRSTS[i], last: LASTS[(i * 7) % LASTS.length], stateCode: code,
+        platoon: 1 + (i % PLATOONS), hostel: `Block ${blocks[i % 5]}`, bunk: `Bunk ${pad(1 + Math.floor(r() * 30))}`,
+        institution: SCHOOLS[i % SCHOOLS.length], course: COURSES[i % COURSES.length], blood: BLOOD[i % BLOOD.length],
+        callUp: `NYSC/2026/${10000 + Math.floor(r() * 89999)}`
+      });
     }
     return out;
   }
 
-  function freshDayTickets(menu) {
+  function freshDayTickets() {
     const out = {};
-    MEALS.forEach((m) => (out[m.id] = { status: 'ready', menu: menu ? menu[m.id] : 'Camp kitchen menu' }));
+    MEALS.forEach((m) => (out[m.id] = { status: 'ready', menu: TODAY_MENU[m.id] }));
     return out;
   }
 
   function seedMember(person, today, idx) {
     const tickets = {};
-    for (let i = 5; i >= 1; i--) {
-      const k = shiftDay(today, -i);
-      const r = rng(i * 97 + idx * 13);
-      tickets[k] = {};
-      MEALS.forEach((m) => {
-        const qIn = at(k, m.hour, 5 + Math.floor(r() * 40));
-        let t = { status: 'served', checkedInAt: qIn, servedAt: qIn + (6 + Math.floor(r() * 14)) * 60000, queuePos: 5 + Math.floor(r() * 30), menu: PAST_MENU[m.id][i - 1] };
-        if (idx === 0 && i === 3 && m.id === 'lunch') {
-          t = { status: 'rollover', checkedInAt: qIn, rolledAt: qIn + 19 * 60000, queuePos: 42, menu: PAST_MENU.lunch[i - 1], redeemedAt: at(k, 19, 4), redeemedWith: 'dinner' };
-        }
-        if (idx === 0 && i === 3 && m.id === 'dinner') { t.priority = true; t.queuePos = 1; t.checkedInAt = at(k, 19, 4); t.servedAt = at(k, 19, 6); }
-        if (idx === 0 && i === 2 && m.id === 'breakfast') t = { status: 'missed', menu: PAST_MENU.breakfast[i - 1] };
-        tickets[k][m.id] = t;
-      });
+    if (idx < 5) {
+      for (let i = 5; i >= 1; i--) {
+        const k = shiftDay(today, -i);
+        const r = rng(i * 97 + idx * 13);
+        tickets[k] = {};
+        MEALS.forEach((m) => {
+          const qIn = at(k, m.h, m.m + Math.floor(r() * 40));
+          let t = { status: 'served', checkedInAt: qIn, servedAt: qIn + (6 + Math.floor(r() * 14)) * 60000, menu: PAST_MENU[m.id][i - 1] };
+          if (idx === 0 && i === 3 && m.id === 'lunch') {
+            t = { status: 'rollover', checkedInAt: qIn, rolledAt: qIn + 19 * 60000, menu: PAST_MENU.lunch[i - 1], redeemedAt: qIn + 52 * 60000, servedAt: qIn + 52 * 60000, priority: true };
+          }
+          if (idx === 0 && i === 2 && m.id === 'breakfast') t = { status: 'missed', menu: PAST_MENU.breakfast[i - 1] };
+          tickets[k][m.id] = t;
+        });
+      }
     }
-    tickets[today] = freshDayTickets(TODAY_MENU);
+    tickets[today] = freshDayTickets();
     const d6 = shiftDay(today, -6), d5 = shiftDay(today, -5), d4 = shiftDay(today, -4);
     return {
       profile: Object.assign({ batch: '2026 Batch C · Stream I', camp: 'Iyana-Ipaja Orientation Camp, Lagos' }, person),
@@ -102,38 +118,70 @@
     };
   }
 
+  // Today's live picture: some corps members already served, some waiting in the queue.
+  function seedToday(w, day, now) {
+    const codes = Object.keys(w.members).slice(5); // the 5 featured members start fresh
+    MEALS.forEach((m, mi) => {
+      const start = at(day, m.h, m.m);
+      const shuffled = codes.slice().sort((a, b) => ((a.charCodeAt(9) * 31 + mi * 17) % 13) - ((b.charCodeAt(9) * 31 + mi * 17) % 13));
+      shuffled.slice(0, 14).forEach((c, i) => {
+        const t = w.members[c].tickets[day][m.id];
+        t.status = 'served'; t.checkedInAt = start + i * 90000; t.servedAt = t.checkedInAt + 6 * 60000;
+      });
+      shuffled.slice(14, 21).forEach((c, i) => {
+        const t = w.members[c].tickets[day][m.id];
+        t.status = 'queued'; t.checkedInAt = now - (7 - i) * 70000;
+      });
+    });
+  }
+
   function seedWorld(today, now) {
     now = now || Date.now();
     const members = {};
-    PEOPLE.forEach((p, i) => (members[p.stateCode] = seedMember(p, today, i)));
-    return {
-      v: 2,
-      rev: 1,
-      members,
-      kitchen: { [today]: seedKitchenDay(4012) },
-      log: [
-        { t: now - 12 * 60000, type: 'info', msg: 'Ration count synced from kitchen' },
-        { t: now - 26 * 60000, type: 'served', msg: 'Batch of 40 plates served at Kitchen Gate A' }
-      ]
-    };
+    allPeople().forEach((p, i) => (members[p.stateCode] = seedMember(p, today, i)));
+    const w = { v: 3, rev: 1, members, kitchen: {}, log: [] };
+    w.kitchen[today] = freshKitchen();
+    seedToday(w, today, now);
+    addLog(w, now - 60000, 'info', 'Kitchen opened: 40 plates cooked per meal');
+    return w;
   }
+  function freshKitchen() { const k = {}; MEALS.forEach((m) => (k[m.id] = { cooked: COOKED })); return k; }
 
-  /* ---------------- Helpers ---------------- */
+  /* ---------------- Derived counts ---------------- */
   function ensureDay(w, day) {
-    if (!w.kitchen[day]) w.kitchen[day] = seedKitchenDay(parseInt(day.replace(/-/g, ''), 10) % 100000);
+    if (!w.kitchen[day]) w.kitchen[day] = freshKitchen();
     for (const code in w.members) {
       const mb = w.members[code];
-      if (!mb.tickets[day]) mb.tickets[day] = freshDayTickets(TODAY_MENU);
+      if (!mb.tickets[day]) mb.tickets[day] = freshDayTickets();
     }
   }
-  const remaining = (k) => Math.max(0, k.cooked - k.served);
-  function queuedMembers(w, day, meal) {
-    return Object.keys(w.members).filter((c) => w.members[c].tickets[day] && w.members[c].tickets[day][meal].status === 'queued');
+  const ticketsFor = (w, day, meal) => Object.keys(w.members).map((c) => ({ code: c, p: w.members[c].profile, t: w.members[c].tickets[day] && w.members[c].tickets[day][meal] })).filter((x) => x.t);
+  const isServed = (t) => t.status === 'served' || (t.status === 'rollover' && !!t.redeemedAt);
+
+  function stats(w, day, meal) {
+    const all = ticketsFor(w, day, meal);
+    const k = w.kitchen[day][meal];
+    const served = all.filter((x) => isServed(x.t)).length;
+    const queue = all.filter((x) => x.t.status === 'queued').sort((a, b) => a.t.checkedInAt - b.t.checkedInAt);
+    const priority = all.filter((x) => x.t.status === 'rollover' && !x.t.redeemedAt).sort((a, b) => a.t.rolledAt - b.t.rolledAt);
+    const rollovers = all.filter((x) => x.t.status === 'rollover').length;
+    const platoons = {};
+    for (let p = 1; p <= PLATOONS; p++) platoons[p] = { s: 0, r: 0, q: 0 };
+    all.forEach((x) => {
+      const pl = platoons[x.p.platoon] || (platoons[x.p.platoon] = { s: 0, r: 0, q: 0 });
+      if (isServed(x.t)) pl.s++;
+      if (x.t.status === 'rollover') pl.r++;
+      if (x.t.status === 'queued') pl.q++;
+    });
+    return { cooked: k.cooked, served, remaining: Math.max(0, k.cooked - served), queue, priority, rollovers, platoons, total: all.length };
   }
-  const inQueue = (w, day, meal) => w.kitchen[day][meal].queue + queuedMembers(w, day, meal).length;
-  const plat = (k, p) => k.platoons[p] || (k.platoons[p] = { s: 0, r: 0 });
-  const randPlatoon = () => 1 + Math.floor(Math.random() * PLATOONS);
-  function addLog(w, t, type, msg) { w.log.unshift({ t, type, msg }); if (w.log.length > 60) w.log.length = 60; }
+  function queuePos(w, day, meal, code) {
+    const q = stats(w, day, meal).queue;
+    const i = q.findIndex((x) => x.code === code);
+    return i < 0 ? null : i + 1;
+  }
+  function addLog(w, t, type, msg) { w.log.unshift({ t, type, msg }); if (w.log.length > 80) w.log.length = 80; }
+  const nm = (w, c) => { const p = w.members[c].profile; return `${p.first} ${p.last}`; };
 
   function pendingRollover(w, code, day) {
     const tk = w.members[code] && w.members[code].tickets[day];
@@ -149,24 +197,12 @@
     return (h >>> 0).toString(16).toUpperCase().padStart(8, '0').slice(0, 6);
   }
 
-  function rolloverMember(w, day, meal, code, now, why) {
-    const mb = w.members[code], t = mb.tickets[day][meal], k = w.kitchen[day][meal];
-    t.status = 'rollover'; t.rolledAt = now; t.reason = why;
-    plat(k, mb.profile.platoon).r++; k.rollovers++;
-    addLog(w, now, 'rollover', `${code} UNSERVED · auto-issued Priority Rollover Pass`);
-  }
-
-  // When plates hit 0, nobody still in the queue is silently "ticked": they all roll over.
+  // Plates ran out: nobody still in the queue is silently "ticked". They all roll over.
   function exhaust(w, day, meal, now, reason) {
-    const k = w.kitchen[day][meal];
-    const others = k.queue;
-    for (let i = 0; i < others; i++) plat(k, randPlatoon()).r++;
-    k.rollovers += others; k.queue = 0;
-    const members = queuedMembers(w, day, meal);
-    members.forEach((c) => rolloverMember(w, day, meal, c, now, 'Rations ran out while you were in the queue'));
-    const total = others + members.length;
-    if (total) addLog(w, now, 'alert', `${MEAL[meal].name}: ${reason}. ${total} corps members in queue protected with Priority Rollover`);
-    return members;
+    const q = stats(w, day, meal).queue;
+    q.forEach((x) => { x.t.status = 'rollover'; x.t.rolledAt = now; });
+    if (q.length) addLog(w, now, 'alert', `${MEAL[meal].name}: ${reason}. ${q.length} corps member${q.length > 1 ? 's' : ''} in queue issued Priority Rollover Passes`);
+    return q.map((x) => x.code);
   }
 
   /* ---------------- Actions ---------------- */
@@ -174,70 +210,72 @@
   function apply(w, a) {
     const day = a.day, meal = a.meal, now = a.at || Date.now();
     ensureDay(w, day);
-    const k = meal ? w.kitchen[day][meal] : null;
-    const mb = a.code ? w.members[a.code] : null;
-    const t = mb && meal ? mb.tickets[day][meal] : null;
     const fail = (msg) => ({ ok: false, msg, tone: 'red' });
+    const st = meal ? stats(w, day, meal) : null;
+    let code = a.code;
+    if (a.type === 'serveNext') {
+      if (st.priority.length && st.remaining > 0) code = st.priority[0].code;
+      else if (st.queue.length) code = st.queue[0].code;
+      else return fail('Nobody is waiting in the queue.');
+    }
+    const mb = code ? w.members[code] : null;
+    const t = mb && meal ? mb.tickets[day][meal] : null;
     let res;
 
     switch (a.type) {
       case 'checkin': {
         if (!t) return fail('Unknown corps member.');
-        if (t.status !== 'ready') return fail('This ticket has already been checked in.');
-        if (remaining(k) <= 0) return fail('Kitchen is out of plates. Ticket NOT marked, so it stays valid.');
-        t.status = 'queued'; t.checkedInAt = now; t.queuePos = inQueue(w, day, meal);
-        addLog(w, now, 'queued', `${a.code} checked in for ${MEAL[meal].name} · #${t.queuePos} in queue · 1 ration reserved`);
-        res = { ok: true, msg: `Checked in · #${t.queuePos} in queue`, tone: 'amber', fx: 'checkin' };
+        if (t.status !== 'ready') return fail(`${nm(w, code)} is already checked in for ${MEAL[meal].name}.`);
+        if (st.remaining <= 0) return fail('Kitchen is out of plates. Ticket NOT marked, so it stays valid.');
+        t.status = 'queued'; t.checkedInAt = now;
+        const pos = queuePos(w, day, meal, code);
+        addLog(w, now, 'queued', `${nm(w, code)} (${code}) checked in · #${pos} in queue`);
+        res = { ok: true, msg: `${mb.profile.first} checked in · #${pos} in queue`, tone: 'amber', fx: 'checkin' };
         break;
       }
-      case 'serve': {
+      case 'serve':
+      case 'serveNext': {
         if (!t) return fail('Unknown corps member.');
         if (t.status === 'rollover' && !t.redeemedAt) {
-          if (remaining(k) <= 0) return fail('Still no plates. Add the next batch first.');
-          k.served++; plat(k, mb.profile.platoon).s++;
-          t.redeemedAt = now; t.servedAt = now; t.redeemedWith = meal; t.priority = true;
-          addLog(w, now, 'served', `PRIORITY pass redeemed for ${a.code} · plate handed over from next batch`);
-          res = { ok: true, msg: 'Priority pass redeemed · Served', tone: 'green', fx: 'served' };
+          if (st.remaining <= 0) return fail('Still no plates. Add the next batch first.');
+          t.redeemedAt = now; t.servedAt = now; t.priority = true;
+          addLog(w, now, 'served', `${nm(w, code)} served with Priority Pass (next batch)`);
+          res = { ok: true, msg: `${mb.profile.first} served · priority pass`, tone: 'green', fx: 'served' };
           break;
         }
         if (t.status !== 'queued') return fail('Scan the gate check-in first (Step 1).');
-        if (remaining(k) <= 0) {
+        if (st.remaining <= 0) {
           exhaust(w, day, meal, now, 'no plates left at the serving point');
-          res = { ok: true, msg: 'Food finished · Priority Rollover Pass issued', tone: 'violet', fx: 'rollover' };
+          res = { ok: true, msg: 'Food finished · Priority Rollover issued', tone: 'violet', fx: 'rollover' };
           break;
         }
-        k.served++; plat(k, mb.profile.platoon).s++;
         t.status = 'served'; t.servedAt = now;
-        addLog(w, now, 'served', `${a.code} served ${MEAL[meal].name} · plate handover confirmed`);
-        if (remaining(k) === 0) exhaust(w, day, meal, now, 'last plate served');
-        res = { ok: true, msg: 'Plate handed over · Served', tone: 'green', fx: 'served' };
-        break;
-      }
-      case 'serveOther': {
-        if (remaining(k) <= 0) return fail('No plates left to serve.');
-        k.served++; plat(k, randPlatoon()).s++;
-        if (k.queue > 0) {
-          k.queue--;
-          queuedMembers(w, day, meal).forEach((c) => { const q = w.members[c].tickets[day][meal]; if (q.queuePos > 1) q.queuePos--; });
-        }
-        let rolled = [];
-        if (remaining(k) === 0) rolled = exhaust(w, day, meal, now, 'last plate served');
-        res = rolled.length ? { ok: true, msg: 'Last plate gone · queue moved to Priority Rollover', tone: 'violet', fx: 'rollover' } : { ok: true, quiet: true };
+        addLog(w, now, 'served', `${nm(w, code)} served · plate handed over`);
+        if (st.remaining - 1 === 0) exhaust(w, day, meal, now, 'last plate served');
+        res = { ok: true, msg: `${mb.profile.first} served · plate handed over`, tone: 'green', fx: 'served', code };
         break;
       }
       case 'addPlates': {
         const n = Math.max(1, Math.min(500, a.n | 0));
-        k.cooked += n;
-        if (n > 1) addLog(w, now, 'info', `New batch: +${n} plates added for ${MEAL[meal].name}`);
-        res = n > 1 ? { ok: true, msg: `+${n} plates from next batch`, tone: 'green' } : { ok: true, quiet: true };
+        w.kitchen[day][meal].cooked += n;
+        addLog(w, now, 'info', `${MEAL[meal].name}: +${n} plate${n > 1 ? 's' : ''} added${n > 1 ? ' (next batch)' : ''}`);
+        res = { ok: true, msg: `+${n} plate${n > 1 ? 's' : ''} added`, tone: 'green', quiet: n === 1 };
+        break;
+      }
+      case 'removePlate': {
+        if (st.remaining <= 0) return fail('No plates left.');
+        w.kitchen[day][meal].cooked -= 1;
+        let rolled = [];
+        if (st.remaining - 1 === 0) rolled = exhaust(w, day, meal, now, 'last plate gone');
+        res = rolled.length ? { ok: true, msg: 'Out of plates · queue moved to Priority Rollover', tone: 'violet', fx: 'rollover' } : { ok: true, quiet: true };
         break;
       }
       case 'finish': {
-        if (remaining(k) <= 0) return fail('Rations are already at 0.');
-        k.cooked = k.served;
+        if (st.remaining <= 0) return fail('Rations are already at 0.');
+        w.kitchen[day][meal].cooked = st.served;
         const rolled = exhaust(w, day, meal, now, 'food finished');
-        if (!rolled.length && !k.rollovers) addLog(w, now, 'alert', `${MEAL[meal].name}: food finished (rations set to 0)`);
-        res = { ok: true, msg: rolled.length ? 'Food finished · Priority Rollover Pass issued' : 'Rations set to 0', tone: rolled.length ? 'violet' : 'red', fx: 'finish' };
+        if (!rolled.length) addLog(w, now, 'alert', `${MEAL[meal].name}: food finished (rations set to 0)`);
+        res = { ok: true, msg: rolled.length ? `Food finished · ${rolled.length} priority passes issued` : 'Rations set to 0', tone: rolled.length ? 'violet' : 'red', fx: 'finish' };
         break;
       }
       case 'profile': {
@@ -264,5 +302,5 @@
     return res;
   }
 
-  return { MEALS, MEAL, PLATOONS, DEMO_CODE, dkey, shiftDay, seedWorld, ensureDay, apply, remaining, inQueue, queuedMembers, pendingRollover, token };
+  return { MEALS, MEAL, PLATOONS, DEMO_CODE, VERSION: 3, dkey, shiftDay, currentMeal, seedWorld, ensureDay, apply, stats, queuePos, pendingRollover, token };
 });

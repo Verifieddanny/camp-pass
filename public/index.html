@@ -288,6 +288,43 @@ nav.tabs .nb{position:absolute;top:4px;left:calc(50% + 8px);min-width:9px;height
 @keyframes fall{to{transform:translateY(105vh) rotate(720deg);opacity:.4}}
 .shake{animation:shake .5s}
 @keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+/* ---------- Status theme: the whole app follows the ticket's colour ---------- */
+body{--acc:#008751;--acc-soft:rgba(0,135,81,.10);transition:background-color .4s}
+body[data-status=queued]{--acc:#D97706;--acc-soft:rgba(245,158,11,.16)}
+body[data-status=served]{--acc:#065f3c;--acc-soft:rgba(6,95,60,.12)}
+body[data-status=rollover]{--acc:#6D28D9;--acc-soft:rgba(109,40,217,.13)}
+body[data-status=missed]{--acc:#334155;--acc-soft:rgba(51,65,85,.08)}
+body[data-status=kitchen]{--acc:#0F172A;--acc-soft:rgba(15,23,42,.06)}
+body{background:linear-gradient(180deg,var(--acc-soft) 0,var(--bg) 340px) no-repeat,var(--bg)}
+header{background:color-mix(in srgb, var(--acc) 7%, rgba(248,250,252,.94))}
+.role .thumb,.role.kitchen .thumb{background:var(--acc)}
+nav.tabs button[aria-current=page],nav.tabs.kitchen button[aria-current=page]{color:var(--acc)}
+.sbar{display:flex;align-items:center;gap:10px;width:100%;margin:8px 0 2px;padding:12px 14px;border-radius:16px;background:var(--acc);color:#fff;font-weight:800;font-size:14px;text-align:left;box-shadow:0 8px 20px color-mix(in srgb, var(--acc) 35%, transparent);transition:background .4s}
+.sbar .sdot{width:10px;height:10px;border-radius:50%;background:#fff;flex:none;animation:pulse 1.6s infinite;color:rgba(255,255,255,.6)}
+nav.tabs .nb.cnt{min-width:18px;height:18px;top:0;left:calc(50% + 6px);font-size:10px;font-weight:800;color:#fff;display:grid;place-items:center;padding:0 4px;background:var(--amber-d)}
+.searchbox{display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid var(--line);border-radius:16px;padding:0 14px;margin-bottom:6px;color:var(--muted)}
+.searchbox input{flex:1;border:0;outline:0;background:none;font:inherit;font-size:16px;padding:14px 0;color:var(--slate);min-width:0}
+.plist{padding:4px 14px}
+.prow{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line);flex:1;min-width:0}
+.plist>.prow:first-child,.plist>.qline:first-child .prow{border-top:0}
+.prow .av{width:40px;height:40px;border-radius:12px;background:var(--green-l);color:var(--green-d);display:grid;place-items:center;font-weight:800;font-size:14px;flex:none}
+.prow .who{flex:1;min-width:0}
+.prow .who b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .who b em{font-style:normal;font-size:10px;font-weight:800;color:var(--green-d);background:var(--green-l);padding:2px 6px;border-radius:6px;vertical-align:2px}
+.prow .who small{font:700 12px ui-monospace,Menlo,monospace;color:var(--muted)}
+.mini{flex:none;min-height:40px;min-width:44px;padding:0 14px;border-radius:12px;font-weight:800;font-size:14px;display:grid;place-items:center}
+.mini.amber{background:var(--amber);color:#3b1d02}
+.mini.green{background:var(--green);color:#fff}
+.mini.violet{background:var(--violet);color:#fff}
+.mini[disabled]{opacity:.35;pointer-events:none}
+.qline{display:flex;align-items:center;gap:10px}
+.qline .qn{width:28px;height:28px;border-radius:50%;background:#F1F5F9;color:var(--slate-2);display:grid;place-items:center;font-weight:800;font-size:13px;flex:none}
+.qline.first .qn{background:var(--green);color:#fff}
+.qline .wait{font-size:12px;color:var(--muted);font-weight:700;flex:none}
+.qline.fresh{animation:fresh 1.6s ease}
+@keyframes fresh{0%{background:var(--amber-l);transform:translateX(-8px)}100%{background:transparent;transform:none}}
+.qhead.zero .kbox:first-child{background:var(--red-l)}
+.qhead.zero .kbox:first-child b{color:var(--red)}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
@@ -360,18 +397,18 @@ const { MEALS, MEAL, PLATOONS } = E;
 /* =========================================================
    Local state: world (shared camp data) + ui (this phone only)
    ========================================================= */
-const WKEY = 'camppass.world.v2', UKEY = 'camppass.ui.v2', OKEY = 'camppass.outbox.v2';
+const WKEY = 'camppass.world.v3', UKEY = 'camppass.ui.v3', OKEY = 'camppass.outbox.v3';
 const today = () => E.dkey(new Date());
 const read = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } };
 const write = (k,v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} };
 
 let W = read(WKEY);
-if (!W || W.v !== 2) W = E.seedWorld(today());
+if (!W || W.v !== E.VERSION) W = E.seedWorld(today());
 let outbox = read(OKEY) || [];
-const defaultMeal = () => { const h = new Date().getHours(); return h < 11 ? 'breakfast' : h < 17 ? 'lunch' : 'dinner'; };
-let U = Object.assign({role:'member', tab:'meal', ktab:'scan', meal:defaultMeal(), me:E.DEMO_CODE, scan:E.DEMO_CODE}, read(UKEY)||{});
+const defaultMeal = () => E.currentMeal();
+let U = Object.assign({role:'member', tab:'meal', ktab:'gate', me:E.DEMO_CODE, q:''}, read(UKEY)||{});
+U.meal = defaultMeal(); // always open on the meal being served now
 if (!W.members[U.me]) U.me = E.DEMO_CODE;
-if (!W.members[U.scan]) U.scan = U.me;
 let net = 'connecting'; // connecting | live | syncing | offline | local
 let serverBase = null;   // world from the server, before local pending actions
 
@@ -380,9 +417,8 @@ const ensure = () => E.ensureDay(W, today());
 const ME = () => W.members[U.me];
 const P = () => ME().profile;
 const T = (m=U.meal, code=U.me) => W.members[code].tickets[today()][m];
-const K = (m=U.meal) => W.kitchen[today()][m];
-const remaining = (k) => E.remaining(k);
-const inQueue = (m=U.meal) => E.inQueue(W, today(), m);
+const ST = (m=U.meal) => E.stats(W, today(), m);
+const qpos = (m=U.meal, code=U.me) => E.queuePos(W, today(), m, code);
 
 /* =========================================================
    Sync with the server (REST + live Server-Sent Events)
@@ -420,18 +456,17 @@ async function flush(){
 
 // Server is the source of truth; re-apply anything this phone has not sent yet.
 function adoptServer(world){
-  if (!world || world.v !== 2) return;
+  if (!world || world.v !== E.VERSION) return;
   serverBase = world;
   const w = JSON.parse(JSON.stringify(world));
   for (const a of outbox) { try { E.apply(w, a); } catch(e){} }
   const prevStatus = T().status;
   W = w; ensure();
   if (!W.members[U.me]) U.me = E.DEMO_CODE;
-  if (!W.members[U.scan]) U.scan = U.me;
   saveAll();
   const now = T().status;
   if (U.role === 'member' && now !== prevStatus){
-    if (now === 'queued') { toast(`Checked in · #${T().queuePos} in queue`, 'amber'); buzz(30); }
+    if (now === 'queued') { toast(`Checked in · #${qpos()} in queue`, 'amber'); buzz(30); }
     if (now === 'served') { toast('Plate handed over · Served', 'green'); fx('served'); }
     if (now === 'rollover') { toast('Food finished · Priority Rollover Pass issued', 'violet'); buzz([60,60,60]); }
   }
@@ -530,6 +565,8 @@ const TAB_ICONS = {
   passes:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>',
   history:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>',
   scan:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg>',
+  gate:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M8 12l3 3 5-6"/></svg>',
+  queue:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7" r="2.5"/><circle cx="12" cy="7" r="2.5"/><circle cx="18" cy="7" r="2.5"/><path d="M2.5 19c.5-3 2-4.5 3.5-4.5S9 16 9.5 19M8.5 19c.5-3 2-4.5 3.5-4.5s3 1.5 3.5 4.5M14.5 19c.5-3 2-4.5 3.5-4.5s3 1.5 3.5 4.5"/></svg>',
   rations:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/></svg>',
   audit:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
 };
@@ -578,7 +615,7 @@ function onlineState(){
    Render
    ========================================================= */
 const MEMBER_TABS = [['meal','Meal Ticket'],['id','Camp ID'],['passes','Passes'],['history','History']];
-const KITCHEN_TABS = [['scan','Scanner'],['rations','Rations'],['audit','Audit']];
+const KITCHEN_TABS = [['gate','Gate'],['queue','Queue'],['rations','Rations'],['audit','Audit']];
 
 function render(){
   ensure();
@@ -586,24 +623,52 @@ function render(){
   const role = $('#role'); role.classList.toggle('kitchen', isK);
   role.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.role===U.role)));
   placeThumb();
-  document.querySelector('meta[name=theme-color]').setAttribute('content', isK ? '#0F172A' : '#008751');
+  // The whole app takes the colour of the ticket's status.
+  const t0 = T(), status = isK ? 'kitchen' : (t0.status==='rollover' && t0.redeemedAt) ? 'served' : t0.status;
+  document.body.dataset.status = status;
+  document.querySelector('meta[name=theme-color]').setAttribute('content', THEME[status] || '#008751');
 
   const tabs = isK ? KITCHEN_TABS : MEMBER_TABS;
   const cur = isK ? U.ktab : U.tab;
   $('#tabs').classList.toggle('kitchen', isK);
   $('#tabsIn').innerHTML = tabs.map(([id,label]) => {
-    const dot = (!isK && id==='meal' && (T().status==='queued' || E.pendingRollover(W, U.me, today()))) ? '<span class="nb"></span>' : '';
+    const dot = (!isK && id==='meal' && (T().status==='queued' || E.pendingRollover(W, U.me, today()))) ? '<span class="nb"></span>'
+              : (isK && id==='queue' && ST().queue.length) ? `<span class="nb cnt">${ST().queue.length}</span>` : '';
     return `<button data-tab="${id}" ${id===cur?'aria-current="page"':''}>${TAB_ICONS[id]}${label}${dot}</button>`;
   }).join('');
 
-  const html = isK ? ({scan:vScan, rations:vRations, audit:vAudit}[U.ktab]||vScan)()
+  if (isK) trackQueue();
+  const html = isK ? ({gate:vGate, queue:vQueue, rations:vRations, audit:vAudit}[U.ktab]||vGate)()
                    : ({meal:vMeal, id:vId, passes:vPasses, history:vHistory}[U.tab]||vMeal)();
   const key = `${U.role}-${cur}`;
   const app = $('#app');
   const animate = app.dataset.key !== key;
   app.dataset.key = key;
-  app.innerHTML = `<div class="${animate?'view':''}">${html}</div>`;
+  const search = document.activeElement && document.activeElement.id === 'gateSearch';
+  app.innerHTML = `${isK ? '' : statusBar()}<div class="${animate?'view':''}">${html}</div>`;
+  if (search){ const i = $('#gateSearch'); if (i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
   if (camStream) stopCamera();
+  filterGate();
+}
+function filterGate(){
+  const q = (U.q||'').trim().toLowerCase();
+  document.querySelectorAll('#gateList [data-find]').forEach(r => r.classList.toggle('hidden', !!q && !r.dataset.find.includes(q)));
+}
+document.addEventListener('input', e => { if (e.target.id === 'gateSearch'){ U.q = e.target.value; write(UKEY, U); filterGate(); } });
+const THEME = {ready:'#008751', queued:'#D97706', served:'#065f3c', rollover:'#6D28D9', missed:'#334155', kitchen:'#0F172A'};
+
+// A slim bar under the header that always says where the corps member stands right now.
+function statusBar(){
+  const t = T(), m = MEAL[U.meal];
+  const pos = t.status==='queued' ? qpos() : null;
+  const txt = {
+    ready: `${m.name} ticket ready · show QR at the gate`,
+    queued: `In queue for ${m.name} · you are #${pos}`,
+    served: `${m.name} served · enjoy your meal`,
+    rollover: t.redeemedAt ? `${m.name} served with priority pass` : `Priority pass · go to the front of the next batch`,
+    missed: `${m.name} not used`
+  }[t.status];
+  return `<button class="sbar" data-tab="meal"><span class="sdot"></span>${esc(txt)}</button>`;
 }
 function placeThumb(){
   const r = $('#role').querySelector('[aria-pressed=true]'); if (!r) return;
@@ -631,7 +696,7 @@ function steps(t){
 }
 
 function vMeal(){
-  const m = MEAL[U.meal], t = T(), k = K(), st = t.status;
+  const m = MEAL[U.meal], t = T(), sts = ST(), st = t.status;
   const pr = E.pendingRollover(W, U.me, today());
   let badge, msg = '', qrClass = '', overlay = '', cls = st;
   if (st==='ready'){
@@ -641,7 +706,7 @@ function vMeal(){
       : `<div class="msg info">Show this QR at the kitchen gate. Your ticket is <b>only marked as used when your plate is handed to you</b>, not at the gate.</div>`;
   } else if (st==='queued'){
     badge = `<span class="badge solid"><span class="pulse"></span>CHECKED IN · AWAITING PLATE</span>`;
-    msg = `<div class="msg warn"><b>You're #${t.queuePos} in the queue.</b> 1 ration is reserved for you. If food finishes before you're served, you automatically get a Priority Rollover Pass.</div>`;
+    msg = `<div class="msg warn"><b>You're #${qpos()} in the queue.</b> 1 ration is reserved for you. If food finishes before you're served, you automatically get a Priority Rollover Pass.</div>`;
   } else if (st==='served'){
     badge = `<span class="badge solid">${ICON.check} SERVED</span>`;
     qrClass = 'dim'; overlay = `<div class="over"><div class="big">${ICON.bigcheck}</div></div>`;
@@ -656,7 +721,7 @@ function vMeal(){
     msg = `<div class="msg vio"><b>Food finished before you reached the serving point.</b> Your gate check-in at ${fmtTime(t.checkedInAt)} proves you came, so this ticket is now a <b>Priority Rollover Pass</b>. Use it at the front of the next batch or the next meal.</div>`;
   }
   const rows = st==='queued'
-    ? `<div><span>Checked in</span><b>${fmtTime(t.checkedInAt)}</b></div><div><span>Plates left</span><b>${remaining(k)}</b></div>`
+    ? `<div><span>Checked in</span><b>${fmtTime(t.checkedInAt)}</b></div><div><span>Ahead of you</span><b>${qpos()-1} · ${sts.remaining} plates left</b></div>`
     : st==='served'
     ? `<div><span>Checked in</span><b>${fmtTime(t.checkedInAt)}</b></div><div><span>Served</span><b>${fmtTime(t.servedAt)}</b></div>`
     : st==='rollover'
@@ -785,81 +850,101 @@ function vHistory(){
       </div></div>`).join('')}`;
 }
 
-/* ---------- Official / kitchen views ---------- */
+/* ---------- Official / kitchen views (all counts derived from member records) ---------- */
 function kitchenMeta(){
-  return `<div style="display:flex;align-items:center;gap:8px;margin:-4px 0 14px;flex-wrap:wrap">${onlineState()}<span class="status-pill local">Kitchen Gate A · ${remaining(K())} plates left</span></div>`;
+  const st = ST();
+  return `<div style="display:flex;align-items:center;gap:8px;margin:-4px 0 14px;flex-wrap:wrap">${onlineState()}<span class="status-pill local">${MEAL[U.meal].name} · ${st.remaining} plates left · ${st.queue.length} in queue</span></div>`;
 }
-function peopleRow(){
-  const dot = {queued:'var(--amber)', served:'var(--green)', rollover:'var(--violet)'};
-  return `<div class="people" role="group" aria-label="Corps member at the gate">${Object.keys(W.members).map(c=>{
-    const p = W.members[c].profile, t = T(U.meal, c);
-    const s = t.status==='rollover' && t.redeemedAt ? 'served' : t.status;
-    return `<button class="person" data-scan="${esc(c)}" aria-pressed="${c===U.scan}"><span class="av">${initials(p)}</span>${esc(p.first)}${dot[s]?`<span class="sd" style="background:${dot[s]}"></span>`:''}</button>`;
-  }).join('')}</div>`;
+const waited = (ts) => { const m = Math.max(0, Math.round((Date.now()-ts)/60000)); return m < 1 ? 'just now' : `${m} min`; };
+function personRow(code, right){
+  const p = W.members[code].profile;
+  return `<div class="prow" data-row="${esc(code)}" data-find="${esc((p.first+' '+p.last+' '+code+' platoon '+p.platoon).toLowerCase())}">
+    <span class="av">${initials(p)}</span>
+    <span class="who"><b>${esc(p.first)} ${esc(p.last)}${code===U.me?' <em>this phone</em>':''}</b><small>${esc(code)} · Platoon ${p.platoon}</small></span>
+    ${right}</div>`;
 }
-function vScan(){
-  const code = U.scan, mb = W.members[code], p = mb.profile, t = T(U.meal, code), st = t.status, k = K();
-  const ro = st==='rollover' && !t.redeemedAt;
+function vGate(){
+  const st = ST(), day = today();
+  const codes = Object.keys(W.members);
+  const order = {ready:0, rollover:1, queued:2, served:3, missed:4};
+  codes.sort((a,b)=> (b===U.me)-(a===U.me) || order[T(U.meal,a).status]-order[T(U.meal,b).status] || W.members[a].profile.first.localeCompare(W.members[b].profile.first));
+  const ready = codes.filter(c=>T(U.meal,c).status==='ready').length;
   const camOk = 'BarcodeDetector' in window && navigator.mediaDevices;
   return `
-    <h2 class="title">Official Scanner</h2>
-    <p class="sub">Two-step verification. A ticket is only used when the plate is handed over.</p>
+    <h2 class="title">Kitchen Gate</h2>
+    <p class="sub">Step 1: scan or tap a corps member to check them in. They join the live queue on every staff phone.</p>
     ${kitchenMeta()}
-    ${mealSeg(code)}
-    <div class="sec" style="margin-top:4px">Corps member at the gate</div>
-    ${peopleRow()}
-    <div class="card">
-      <div class="scanee">
-        <div class="avatar">${initials(p)}</div>
-        <div style="min-width:0"><b>${esc(p.first)} ${esc(p.last)}</b><small>${esc(code)} · P${p.platoon}</small></div>
-        ${statusChip(t)}
+    ${mealSeg()}
+    ${camOk ? `<button class="btn dark" data-act="camera" style="margin-bottom:12px">${ICON.cam}Scan ticket QR with camera</button><div id="camBox" class="hidden"></div>` : ''}
+    <div class="searchbox">${ICON.scan}<input id="gateSearch" type="search" placeholder="Search name, state code or platoon" value="${esc(U.q)}" autocomplete="off" enterkeyhint="search"></div>
+    <div class="sec" style="margin-top:6px">${ready} waiting to check in · ${codes.length} corps members</div>
+    <div class="card plist" id="gateList">
+      ${codes.map(c=>{
+        const t = T(U.meal,c);
+        let right;
+        if (t.status==='ready') right = `<button class="mini amber" data-checkin="${esc(c)}" ${st.remaining<=0?'disabled':''}>Check in</button>`;
+        else if (t.status==='queued') right = `<span class="chip queued">#${qpos(U.meal,c)} IN QUEUE</span>`;
+        else right = statusChip(t);
+        return personRow(c, right);
+      }).join('')}
+    </div>`;
+}
+function vQueue(){
+  const st = ST();
+  const head = st.priority.length && st.remaining>0 ? st.priority[0] : st.queue[0];
+  return `
+    <h2 class="title">Live Queue</h2>
+    <p class="sub">Step 2: confirm the plate handover. Everyone behind moves up instantly.</p>
+    ${mealSeg()}
+    <div class="card qhead ${st.remaining===0?'zero':''}">
+      <div class="kgrid">
+        <div class="kbox"><span>Plates left</span><b>${st.remaining}</b></div>
+        <div class="kbox"><span>In queue</span><b>${st.queue.length}</b></div>
       </div>
-      <div id="camBox" class="hidden"></div>
-      <div class="stack">
-        <button class="btn amber" data-act="checkin" ${st!=='ready'?'disabled':''}><span class="num">1</span>Scan Gate Check-In</button>
-        ${ro
-          ? `<button class="btn violet" data-act="serve">${ICON.star}Serve Priority Pass (next batch)</button>`
-          : `<button class="btn primary" data-act="serve" ${st!=='queued'?'disabled':''}><span class="num">2</span>Confirm Plate Handover</button>`}
-        ${camOk ? `<button class="btn ghost" data-act="camera">${ICON.cam}Scan real QR with camera</button>` : ''}
-      </div>
-      ${st==='queued' ? `<div class="msg warn" style="margin-top:12px">Checked in at ${fmtTime(t.checkedInAt)} · #${t.queuePos} in queue · 1 ration reserved</div>` : ''}
-      ${st==='served' ? `<div class="msg info" style="margin-top:12px">✅ Served at ${fmtTime(t.servedAt)}. This ticket can't be used again for ${MEAL[U.meal].name}.</div>` : ''}
-      ${ro && remaining(k)===0 ? `<div class="msg vio" style="margin-top:12px">Food finished. Add the next batch on the <b>Rations</b> tab, then serve this priority pass first.</div>` : ''}
-      ${t.redeemedAt ? `<div class="msg info" style="margin-top:12px">⭐ Priority pass redeemed at ${fmtTime(t.redeemedAt)}.</div>` : ''}
+      ${head ? `<button class="btn ${head.t.status==='rollover'?'violet':'primary'}" data-serve="${esc(head.code)}" style="margin-top:12px">${head.t.status==='rollover'?ICON.star:ICON.check}Serve ${esc(head.p.first)} ${esc(head.p.last)}</button>`
+             : `<div class="msg info" style="margin-top:12px">Nobody is waiting. Check people in at the <b>Gate</b> tab.</div>`}
+      ${st.queue.length > st.remaining && st.remaining>0 ? `<div class="risk">${ICON.alert}<span>${st.queue.length-st.remaining} in the queue won't get a plate. They'll get Priority Rollover Passes automatically.</span></div>`:''}
+      ${st.remaining===0 && (st.priority.length) ? `<div class="msg vio" style="margin-top:12px">Food finished. Add the next batch on <b>Rations</b> to serve priority passes first.</div>`:''}
     </div>
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><b>Quick controls</b><small style="color:var(--muted)">${MEAL[U.meal].name}</small></div>
-      <div class="kgrid" style="margin-bottom:10px">
-        <div class="kbox"><span>Plates left</span><b>${remaining(k)}</b></div>
-        <div class="kbox"><span>In queue</span><b>${inQueue()}</b></div>
-      </div>
-      <button class="btn danger" data-act="finish" ${remaining(k)===0?'disabled':''}>${ICON.alert}Simulate Food Finished</button>
+    ${st.priority.length ? `<div class="sec">Priority rollover · served first</div>
+      <div class="card plist">${st.priority.map(x=>personRow(x.code, `<button class="mini violet" data-serve="${esc(x.code)}" ${st.remaining<=0?'disabled':''}>Serve</button>`)).join('')}</div>`:''}
+    <div class="sec">Waiting for a plate</div>
+    <div class="card plist">
+      ${st.queue.length ? st.queue.map((x,i)=>`<div class="qline ${i===0?'first':''} ${fresh.has(x.code)?'fresh':''}"><span class="qn">${i+1}</span>${personRow(x.code, `<span class="wait">${waited(x.t.checkedInAt)}</span><button class="mini green" data-serve="${esc(x.code)}" aria-label="Serve ${esc(x.p.first)}">${ICON.check}</button>`)}</div>`).join('')
+        : '<p class="sub" style="margin:6px 2px">Queue is empty.</p>'}
     </div>
-    <button class="hint" data-go="member">${ICON.arrow}<span>Switch to <b>Corps</b> view to see the ticket update live.</span></button>`;
+    <button class="btn danger" data-act="finish" ${st.remaining===0?'disabled':''}>${ICON.alert}Simulate Food Finished</button>`;
+}
+// highlight people who just joined the queue
+let lastQueue = null, fresh = new Set();
+function trackQueue(){
+  const now = new Set(ST().queue.map(x=>x.code));
+  fresh = new Set(lastQueue ? [...now].filter(c=>!lastQueue.has(c)) : []);
+  lastQueue = now;
 }
 
 function vRations(){
-  const k = K(), rem = remaining(k), q = inQueue();
+  const st = ST(), rem = st.remaining, q = st.queue.length;
   const tone = rem===0 ? 'zero' : rem <= q ? 'low' : '';
-  const tot = Math.max(1, k.cooked), short = Math.max(0, q - rem);
+  const tot = Math.max(1, st.cooked), short = Math.max(0, q - rem);
   return `
     <h2 class="title">Ration Inventory</h2>
-    <p class="sub">Live count for ${MEAL[U.meal].name}. Updates with every plate handed over.</p>
+    <p class="sub">Live count for ${MEAL[U.meal].name}, worked out from every plate handed over.</p>
     ${kitchenMeta()}
-    ${mealSeg(U.scan)}
+    ${mealSeg()}
     <div class="card">
       <div class="kgrid">
         <div class="kbox big ${tone}">
           <div><span>Remaining plates</span><b>${rem}</b></div>
-          <div class="stepper"><button data-act="minus" aria-label="Serve one plate">−</button><button data-act="plus" aria-label="Add one plate">+</button></div>
+          <div class="stepper"><button data-act="minus" aria-label="Remove one plate">−</button><button data-act="plus" aria-label="Add one plate">+</button></div>
         </div>
-        <div class="kbox"><span>Total cooked</span><b>${k.cooked}</b></div>
-        <div class="kbox"><span>Plates served</span><b style="color:var(--green-d)">${k.served}</b></div>
+        <div class="kbox"><span>Total cooked</span><b>${st.cooked}</b></div>
+        <div class="kbox"><span>Plates served</span><b style="color:var(--green-d)">${st.served}</b></div>
         <div class="kbox"><span>In-queue reserved</span><b style="color:var(--amber-d)">${q}</b></div>
-        <div class="kbox"><span>Priority rollovers</span><b style="color:var(--violet)">${k.rollovers}</b></div>
+        <div class="kbox"><span>Priority rollovers</span><b style="color:var(--violet)">${st.rollovers}</b></div>
       </div>
       <div class="meter">
-        <i style="width:${k.served/tot*100}%;background:var(--green)"></i>
+        <i style="width:${st.served/tot*100}%;background:var(--green)"></i>
         <i style="width:${Math.min(q,rem)/tot*100}%;background:var(--amber)"></i>
         <i style="width:${Math.max(0,rem-q)/tot*100}%;background:#CBD5E1"></i>
       </div>
@@ -869,29 +954,28 @@ function vRations(){
     </div>
     <div class="stack">
       <button class="btn danger" data-act="finish" ${rem===0?'disabled':''}>${ICON.alert}Simulate Food Finished (Set Rations to 0)</button>
-      <button class="btn ghost" data-act="batch">${ICON.plate}Add Next Batch (+50 plates)</button>
-    </div>
-    <p class="sub" style="margin-top:12px;font-size:12px;text-align:center">Tip: tap − to serve the next person in the queue.</p>`;
+      <button class="btn ghost" data-act="batch">${ICON.plate}Add Next Batch (+20 plates)</button>
+    </div>`;
 }
 
 function vAudit(){
-  const k = K(); const rows = []; let mx = 1, ts = 0, tr = 0;
-  for (let p=1;p<=PLATOONS;p++){ const v = k.platoons[p]||{s:0,r:0}; rows.push([p,v]); mx = Math.max(mx, v.s+v.r); ts+=v.s; tr+=v.r; }
+  const st = ST(); const rows = []; let mx = 1, ts = 0, tr = 0;
+  for (let p=1;p<=PLATOONS;p++){ const v = st.platoons[p]||{s:0,r:0,q:0}; rows.push([p,v]); mx = Math.max(mx, v.s+v.r+v.q); ts+=v.s; tr+=v.r; }
   const dc = {served:'var(--green)', queued:'var(--amber)', rollover:'var(--violet)', alert:'var(--red)', info:'#94A3B8'};
   const myP = P().platoon;
   return `
     <h2 class="title">Platoon Ration Audit</h2>
     <p class="sub">${MEAL[U.meal].name} · ${fmtDay(today())}. Every plate is backed by a timestamped check-in.</p>
-    ${mealSeg(U.scan)}
+    ${mealSeg()}
     <div class="stats3">
       <div class="stat"><b style="color:var(--green-d)">${ts}</b><span>Served</span></div>
       <div class="stat"><b style="color:var(--violet)">${tr}</b><span>Rollovers</span></div>
-      <div class="stat"><b>${inQueue()}</b><span>In queue</span></div>
+      <div class="stat"><b style="color:var(--amber-d)">${st.queue.length}</b><span>In queue</span></div>
     </div>
     <div class="card">
       <table class="audit">
-        <thead><tr><th>Platoon</th><th class="n">Served</th><th class="n">Rollover</th></tr></thead>
-        <tbody>${rows.map(([p,v])=>`<tr class="${p===myP?'me':''}"><td><b>Platoon ${p}</b><div class="bar"><i style="width:${v.s/mx*100}%;background:var(--green)"></i><i style="width:${v.r/mx*100}%;background:var(--violet)"></i></div></td><td class="n">${v.s}</td><td class="n" style="color:${v.r?'var(--violet)':'inherit'}">${v.r}</td></tr>`).join('')}</tbody>
+        <thead><tr><th>Platoon</th><th class="n">Served</th><th class="n">Queue</th><th class="n">Rollover</th></tr></thead>
+        <tbody>${rows.map(([p,v])=>`<tr class="${p===myP?'me':''}"><td><b>Platoon ${p}</b><div class="bar"><i style="width:${v.s/mx*100}%;background:var(--green)"></i><i style="width:${v.q/mx*100}%;background:var(--amber)"></i><i style="width:${v.r/mx*100}%;background:var(--violet)"></i></div></td><td class="n">${v.s}</td><td class="n" style="color:${v.q?'var(--amber-d)':'inherit'}">${v.q}</td><td class="n" style="color:${v.r?'var(--violet)':'inherit'}">${v.r}</td></tr>`).join('')}</tbody>
       </table>
     </div>
     <div class="sec">Activity log</div>
@@ -972,10 +1056,9 @@ async function startCamera(){
         const meal = (parts[4]||'').toLowerCase();
         if (parts[3] !== today()) return fail('This ticket is for a different day');
         if (MEAL[meal]) U.meal = meal;
-        U.scan = parts[2];
-        const t = T(U.meal, U.scan);
-        if (t.status==='ready') act({type:'checkin', code:U.scan});
-        else if (t.status==='queued' || (t.status==='rollover' && !t.redeemedAt)) act({type:'serve', code:U.scan});
+        const code = parts[2], t = T(U.meal, code);
+        if (t.status==='ready') act({type:'checkin', code});
+        else if (t.status==='queued' || (t.status==='rollover' && !t.redeemedAt)) act({type:'serve', code});
         else { toast('Already served for this meal', 'dark'); render(); }
       }catch(e){}
     }, 300);
@@ -1020,16 +1103,17 @@ document.addEventListener('click', e => {
   if (d.role){ if (U.role!==d.role){ U.role = d.role; saveAll(); render(); scrollTo({top:0}); buzz(8);} return; }
   if (d.tab){ if (U.role==='kitchen') U.ktab = d.tab; else U.tab = d.tab; saveAll(); render(); scrollTo({top:0}); buzz(5); return; }
   if (d.meal){ U.meal = d.meal; saveAll(); render(); buzz(5); return; }
-  if (d.scan){ U.scan = d.scan; saveAll(); render(); buzz(5); return; }
-  if (d.me){ U.me = d.me; U.scan = d.me; saveAll(); closeSheet(); render(); toast(`Signed in as ${W.members[d.me].profile.first}`); return; }
-  if (d.go){ U.role = d.go; if (d.go==='kitchen'){ U.ktab='scan'; U.scan=U.me; } else U.tab='meal'; saveAll(); render(); scrollTo({top:0, behavior:'smooth'}); return; }
+  if (d.checkin){ act({type:'checkin', code:d.checkin}); return; }
+  if (d.serve){ act({type:'serve', code:d.serve}); return; }
+  if (d.me){ U.me = d.me; saveAll(); closeSheet(); render(); toast(`Signed in as ${W.members[d.me].profile.first}`); return; }
+  if (d.go){ U.role = d.go; if (d.go==='kitchen'){ U.ktab='gate'; U.q=''; } else U.tab='meal'; saveAll(); render(); scrollTo({top:0, behavior:'smooth'}); return; }
   const handlers = {
-    checkin: ()=>act({type:'checkin', code:U.scan}),
-    serve:   ()=>act({type:'serve', code:U.scan}),
+    checkin: ()=>act({type:'checkin', code:U.me}),
+    serve:   ()=>act({type:'serve', code:U.me}),
     finish:  ()=>act({type:'finish'}),
-    minus:   ()=>act({type:'serveOther'}),
+    minus:   ()=>act({type:'removePlate'}),
     plus:    ()=>act({type:'addPlates', n:1}),
-    batch:   ()=>act({type:'addPlates', n:50}),
+    batch:   ()=>act({type:'addPlates', n:20}),
     camera:  ()=> camStream ? stopCamera() : startCamera(),
     close: closeSheet,
     install: ()=>{ closeSheet(); doInstall(); },
@@ -1045,7 +1129,7 @@ $('#installGo').addEventListener('click', doInstall);
 $('#installX').addEventListener('click', ()=>{ $('#install').classList.remove('show'); try{ localStorage.setItem('camppass.installSnooze', Date.now()); }catch(e){} });
 addEventListener('scroll', ()=>$('#hdr').classList.toggle('scrolled', scrollY>4), {passive:true});
 addEventListener('resize', placeThumb);
-addEventListener('storage', e => { if (e.key===WKEY){ const w = read(WKEY); if (w && w.v===2){ W = w; render(); } } });
+addEventListener('storage', e => { if (e.key===WKEY){ const w = read(WKEY); if (w && w.v===E.VERSION){ W = w; render(); } } });
 document.addEventListener('visibilitychange', ()=>{ if (!document.hidden){ render(); if (net!=='local' && (!sse || sse.readyState===2)) connect(); } });
 setInterval(()=>{ if (outbox.length && net!=='local') flush(); }, 10000);
 

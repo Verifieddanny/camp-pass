@@ -34,7 +34,7 @@ async function redis(cmd) {
 
 let world;
 try { world = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); } catch (e) { world = null; }
-if (!world || world.v !== 2) world = Engine.seedWorld(campToday());
+if (!world || world.v !== Engine.VERSION) world = Engine.seedWorld(campToday());
 
 // Pull the newest shared state before handling a request.
 async function refresh() {
@@ -43,7 +43,8 @@ async function refresh() {
     const raw = await redis(['GET', REDIS_KEY]);
     if (raw) {
       const w = JSON.parse(raw);
-      if (w && w.v === 2) world = w;
+      if (w && w.v === Engine.VERSION) world = w;
+      else await redis(['SET', REDIS_KEY, JSON.stringify(world)]);
     } else {
       await redis(['SET', REDIS_KEY, JSON.stringify(world)]);
     }

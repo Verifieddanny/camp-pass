@@ -20,8 +20,8 @@ READY ──(gate check-in)──▶ IN QUEUE ──(plate handover)──▶ SE
 
 ## Features
 
-- **Corps Member view:** live meal ticket with QR code, Camp ID card, Hostel Bunk Pass, Camp Clearance checklist, and full meal history
-- **Official / Kitchen view:** two-step scanner (buttons, plus a real camera QR scan on supported phones), live ration inventory, a "Simulate Food Finished" button, platoon ration audit, and an activity log
+- **Corps Member view:** live meal ticket with QR code, a status bar showing your queue position, and app colours that follow your ticket status (green ready, amber in queue, deep green served, purple priority). Also Camp ID, Hostel Bunk Pass, Camp Clearance and meal history. Meals: Breakfast from 7:30 AM, Lunch from 2:00 PM, Dinner from 6:30 PM.
+- **Official / Kitchen view:** Gate check-in (search 40 corps members or scan their QR), a live queue where serving the person at the front moves everyone up on every staff phone, ration inventory, platoon audit and activity log. Every count is derived from real corps member records on the server.
 - **Live sync:** a kitchen phone scans and the corps member's phone updates instantly (Server-Sent Events)
 - **Offline-first:** the service worker caches the whole app. Actions taken with no signal are saved on the device and synced when the connection returns.
 - **Installable:** add-to-Home-Screen prompt (Android) and guided install (iPhone), splash screen, standalone full-screen app
@@ -45,7 +45,7 @@ READY ──(gate check-in)──▶ IN QUEUE ──(plate handover)──▶ SE
 | GET | `/api/state?day=YYYY-MM-DD` | Full camp state |
 | GET | `/api/members` | Corps member list |
 | GET | `/api/members/:stateCode` | One member's profile, passes, and tickets |
-| POST | `/api/actions` | Apply actions (`checkin`, `serve`, `serveOther`, `addPlates`, `finish`, `profile`, `reset`); accepts an offline batch |
+| POST | `/api/actions` | Apply actions (`checkin`, `serve`, `serveNext`, `addPlates`, `removePlate`, `finish`, `profile`, `reset`); accepts an offline batch |
 | GET | `/api/stream` | Live updates (Server-Sent Events) |
 
 ## Run locally
