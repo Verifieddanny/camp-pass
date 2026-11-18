@@ -12,20 +12,57 @@ const TZ_OFFSET_MIN = Number(process.env.CAMP_TZ_OFFSET_MIN || 60); // Nigeria (
 const campToday = () => Engine.dkey(new Date(Date.now() + (TZ_OFFSET_MIN + new Date().getTimezoneOffset()) * 60000));
 const validDay = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
 
-/* ---------- Storage (JSON file, written atomically) ---------- */
+/* ---------- Storage ----------
+ * With Upstash/Vercel KV env vars set, camp state lives in Redis, so every
+ * serverless instance (Vercel) shares it. Otherwise it is kept in memory and
+ * saved to a JSON file (Render, local).
+ */
+const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+const REDIS_KEY = 'camppass:world';
+const useRedis = !!(REDIS_URL && REDIS_TOKEN);
+
+async function redis(cmd) {
+  const r = await fetch(REDIS_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${REDIS_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(cmd)
+  });
+  if (!r.ok) throw new Error('redis ' + r.status);
+  return (await r.json()).result;
+}
+
 let world;
 try { world = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); } catch (e) { world = null; }
 if (!world || world.v !== 2) world = Engine.seedWorld(campToday());
 
+// Pull the newest shared state before handling a request.
+async function refresh() {
+  if (!useRedis) return;
+  try {
+    const raw = await redis(['GET', REDIS_KEY]);
+    if (raw) {
+      const w = JSON.parse(raw);
+      if (w && w.v === 2) world = w;
+    } else {
+      await redis(['SET', REDIS_KEY, JSON.stringify(world)]);
+    }
+  } catch (e) { console.error('redis read failed', e.message); }
+}
+
 let saveTimer = null;
-function persist() {
+async function persist() {
+  if (useRedis) {
+    try { await redis(['SET', REDIS_KEY, JSON.stringify(world)]); } catch (e) { console.error('redis write failed', e.message); }
+    return;
+  }
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try {
       fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
       fs.writeFileSync(DATA_FILE + '.tmp', JSON.stringify(world));
       fs.renameSync(DATA_FILE + '.tmp', DATA_FILE);
-    } catch (e) { console.error('save failed', e.message); }
+    } catch (e) { /* read-only filesystem (serverless): memory only */ }
   }, 150);
 }
 
@@ -43,13 +80,17 @@ app.disable('x-powered-by');
 app.use(express.json({ limit: '100kb' }));
 app.use((req, res, next) => { if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store'); next(); });
 
-app.get('/api/health', (req, res) => res.json({ ok: true, rev: world.rev, clients: clients.size, today: campToday() }));
+app.use('/api', (req, res, next) => { refresh().then(next, next); });
+
+app.get('/api/health', (req, res) => res.json({ ok: true, rev: world.rev, storage: useRedis ? 'redis' : 'memory+file', clients: clients.size, today: campToday() }));
 
 app.get('/api/state', (req, res) => {
   const day = validDay(req.query.day) ? req.query.day : campToday();
-  const before = world.rev;
+  const hadDay = !!world.kitchen[day];
   Engine.ensureDay(world, day);
-  if (world.rev !== before) persist();
+  if (!hadDay) persist();
+  // Cheap polling: the phone sends the rev it has; reply small when nothing changed.
+  if (req.query.rev && Number(req.query.rev) === world.rev && hadDay) return res.json({ same: true, rev: world.rev });
   res.json({ world, serverTime: Date.now() });
 });
 
@@ -66,7 +107,7 @@ app.get('/api/members/:code(*)', (req, res) => {
 });
 
 // Apply one or more actions in order (offline phones replay their queue here).
-app.post('/api/actions', (req, res) => {
+app.post('/api/actions', async (req, res) => {
   const list = Array.isArray(req.body.actions) ? req.body.actions.slice(0, 200) : [req.body];
   const results = [];
   for (const a of list) {
@@ -75,7 +116,7 @@ app.post('/api/actions', (req, res) => {
     if (a.at && (typeof a.at !== 'number' || a.at > Date.now() + 5 * 60000)) a.at = Date.now();
     try { results.push(Engine.apply(world, a)); } catch (e) { results.push({ ok: false, msg: 'Server error' }); }
   }
-  persist();
+  await persist();
   broadcast();
   res.json({ results, world });
 });
@@ -96,4 +137,5 @@ app.use(express.static(path.join(__dirname, 'public'), {
 }));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-app.listen(PORT, () => console.log(`CampPass running on http://localhost:${PORT}`));
+if (require.main === module) app.listen(PORT, () => console.log(`CampPass running on http://localhost:${PORT}`));
+module.exports = app;

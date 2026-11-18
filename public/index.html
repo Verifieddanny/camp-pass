@@ -449,6 +449,7 @@ async function connect(){
     setNet('live');
     flush();
     openStream();
+    startPoll();
   }catch(e){
     setNet('offline');
     setTimeout(connect, 8000);
@@ -458,8 +459,24 @@ function openStream(){
   if (!('EventSource' in window) || sse) return;
   sse = new EventSource('api/stream');
   sse.addEventListener('world', (ev) => { try { if (!flushing) adoptServer(JSON.parse(ev.data)); } catch(e){} if (net!=='syncing') setNet('live'); });
-  sse.onerror = () => { if (sse.readyState === 2){ sse = null; setNet('offline'); setTimeout(connect, 5000); } else setNet('offline'); };
+  // Serverless hosts cut long streams; EventSource reconnects by itself and polling covers the gap.
+  sse.onerror = () => { if (sse && sse.readyState === 2){ sse = null; setTimeout(openStream, 5000); } };
   sse.onopen = () => { setNet('live'); flush(); };
+}
+// Polling keeps every phone in step even when instances don't share a live stream.
+let pollTimer = null;
+function startPoll(){ clearInterval(pollTimer); pollTimer = setInterval(poll, 2500); }
+async function poll(){
+  if (document.hidden || flushing || net === 'local') return;
+  if (outbox.length){ flush(); return; }
+  try{
+    const rev = serverBase ? serverBase.rev : 0;
+    const r = await fetch(`api/state?day=${today()}&rev=${rev}`, {cache:'no-store'});
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    if (!d.same && !flushing && !outbox.length) adoptServer(d.world);
+    setNet('live');
+  }catch(e){ setNet('offline'); }
 }
 function setNet(s){ if (net === s) return; net = s; document.querySelectorAll('[data-net]').forEach(el => el.outerHTML = onlineState()); }
 window.addEventListener('online', () => { if (net==='local') return; connect(); });

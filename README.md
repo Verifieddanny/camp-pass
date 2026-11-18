@@ -33,7 +33,7 @@ READY ──(gate check-in)──▶ IN QUEUE ──(plate handover)──▶ SE
 |---|---|
 | Front end | HTML5, CSS, vanilla JavaScript (no build step) |
 | PWA | `manifest.json`, `sw.js` service worker, PNG and SVG icons |
-| Back end | Node.js and Express REST API, Server-Sent Events, JSON file storage |
+| Back end | Node.js and Express REST API, Server-Sent Events, Redis (Upstash) or JSON file storage |
 | Shared logic | `public/engine.js`, the same state machine running on server and phone |
 | QR | `qrcode-generator` (MIT), bundled locally |
 
@@ -58,11 +58,11 @@ npm test         # state-machine tests
 
 ## Deploy (free, from a phone)
 
-1. Sign in at [render.com](https://render.com) with GitHub.
-2. **New → Blueprint** → pick this repo. `render.yaml` configures everything.
-3. Open the `onrender.com` URL on your phone and tap **Install**.
+**Vercel (live demo):** import this repo in Vercel and it detects the Express app. For shared state across serverless instances, open the project's **Storage** tab, create an **Upstash for Redis** database, and connect it. That sets `KV_REST_API_URL` and `KV_REST_API_TOKEN`, and the server uses Redis automatically. Then redeploy.
 
-If there's no backend (for example on GitHub Pages), the app runs fully on the device in "On-device mode".
+**Render:** use **New → Blueprint** and pick this repo. `render.yaml` configures everything.
+
+Phones stay in sync through Server-Sent Events plus light polling (every 2.5 seconds). If there's no backend at all, the app runs fully on the device in "On-device mode".
 
 ## License
 
