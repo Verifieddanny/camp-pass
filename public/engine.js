@@ -113,7 +113,6 @@
     if (idx % 2 === 1) cleared.obs = at(d4, 8, 30);
     return {
       profile: person,
-      secret: newSecret(),
       cleared,
       tickets
     };
@@ -140,7 +139,7 @@
     now = now || Date.now();
     const members = {};
     allPeople().forEach((p, i) => (members[p.stateCode] = seedMember(p, today, i)));
-    const w = { v: 5, rev: 1, members, kitchen: {}, log: [] };
+    const w = { v: 6, rev: 1, resetAt: 0, members, kitchen: {}, log: [] };
     w.kitchen[today] = freshKitchen();
     seedToday(w, today, now);
     addLog(w, now - 60000, 'info', 'Kitchen opened: 40 plates cooked per meal');
@@ -198,7 +197,7 @@
    * with no network. The server (and any scanner holding the secret)
    * recomputes the signature: a screenshot or an old code fails.
    */
-  const WINDOW_MS = 30000;
+  const WINDOW_MS = 60000;
   const K256 = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
   function sha256(bytes) {
     const l = bytes.length, withPad = ((l + 9 + 63) >> 6) << 6, m = new Uint8Array(withPad);
@@ -236,6 +235,9 @@
     const ih = sha256(inner), outer = new Uint8Array(96); outer.set(opad); outer.set(ih, 64);
     return toHex(sha256(outer));
   }
+  // A member's QR secret is derived from the camp's server key, so every server
+  // instance (and every reset) gives the same member the same secret.
+  const memberSecret = (serverKey, code) => hmacHex(toHex(utf8(serverKey)), 'member|' + code).slice(0, 32);
   function newSecret() {
     const b = new Uint8Array(16);
     if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(b);
@@ -257,15 +259,19 @@
   }
   // Returns { ok, reason?, ...parsed }. With no secret available (a staff phone offline),
   // only the time window is checked; the server re-checks the signature when it syncs.
-  function verifyQR(w, text, now, secretOverride) {
+  // Accepts the current code and the one just before or after it (phone clocks drift).
+  // secret: the member's secret when known (server). Without it (staff phone offline)
+  // only the time is checked, and the server re-checks the signature when it syncs.
+  function verifyQR(w, text, now, secret) {
     const q = parseQR(text);
     if (!q || !w.members[q.code]) return { ok: false, reason: 'invalid' };
     const nowWin = qrWindow(now);
     if (q.win < nowWin - 1 || q.win > nowWin + 1) return Object.assign({ ok: false, reason: 'expired' }, q);
-    const secret = secretOverride || w.members[q.code].secret;
+    if (typeof secret === 'function') secret = secret(q.code);
     if (secret && sigFor(secret, q.code, q.day, q.meal, q.kind, q.win) !== q.sig) return Object.assign({ ok: false, reason: 'invalid' }, q);
     return Object.assign({ ok: true, verified: !!secret }, q);
   }
+
 
   // Plates ran out: nobody still in the queue is silently "ticked". They all roll over.
   function exhaust(w, day, meal, now, reason) {
@@ -273,6 +279,82 @@
     q.forEach((x) => { x.t.status = 'rollover'; x.t.rolledAt = now; });
     if (q.length) addLog(w, now, 'alert', `${MEAL[meal].name}: ${reason}. ${q.length} corps member${q.length > 1 ? 's' : ''} in queue issued Priority Rollover Passes`);
     return q.map((x) => x.code);
+  }
+
+  /* ---------------- Sync: last change wins, per ticket ----------------
+   * Every ticket and kitchen count carries u = when it last changed, and the world
+   * carries resetAt. Two copies of the camp (two phones, or a server instance that
+   * restarted) merge by keeping the newer version of each ticket, so a stale copy
+   * can never push someone back from In queue to Ready.
+   */
+  function snapDay(w, day) {
+    const out = {};
+    for (const c in w.members) { const tk = w.members[c].tickets[day]; if (tk) for (const m in tk) out[c + '|' + m] = JSON.stringify(tk[m]); }
+    const k = w.kitchen[day] || {};
+    for (const m in k) out['K|' + m] = JSON.stringify(k[m]);
+    return out;
+  }
+  function stampDay(w, day, before, now) {
+    // Always later than the version it replaces, even if this phone's clock is behind.
+    const stamp = (key, x) => { const b = before[key]; if (b === JSON.stringify(x)) return; const old = b ? JSON.parse(b).u || 0 : 0; x.u = Math.max(now, old + 1); };
+    for (const c in w.members) { const tk = w.members[c].tickets[day]; if (tk) for (const m in tk) stamp(c + '|' + m, tk[m]); }
+    const k = w.kitchen[day] || {};
+    for (const m in k) stamp('K|' + m, k[m]);
+  }
+  // A small copy of one day, for phones to share what they know with the server.
+  function slim(w, day) {
+    const out = { v: w.v, resetAt: w.resetAt || 0, members: {}, kitchen: {} };
+    if (w.kitchen[day]) out.kitchen[day] = w.kitchen[day];
+    for (const c in w.members) {
+      const mb = w.members[c], o = {};
+      if (mb.tickets[day]) o.tickets = { [day]: mb.tickets[day] };
+      if (mb.profile.u) o.profile = { first: mb.profile.first, last: mb.profile.last, u: mb.profile.u };
+      out.members[c] = o;
+    }
+    return out;
+  }
+  // Folds what `o` knows into `w`. Returns true when `w` changed.
+  function merge(w, o) {
+    if (!o || o.v !== w.v || !o.members) return false;
+    const R = Math.max(w.resetAt || 0, o.resetAt || 0);
+    const wCur = (w.resetAt || 0) === R, oCur = (o.resetAt || 0) === R;
+    let changed = false;
+    const newer = (mine, theirs) => {
+      if (!theirs || typeof theirs !== 'object') return false;
+      const tu = theirs.u || 0, mu = mine ? mine.u || 0 : -1;
+      if (!(oCur || tu > R)) return false;
+      if (!mine || !(wCur || mu > R)) return true;
+      return tu > mu;
+    };
+    const copy = (x) => JSON.parse(JSON.stringify(x));
+    for (const c in o.members) {
+      const mb = w.members[c], om = o.members[c];
+      if (!mb || !om) continue;
+      if (om.profile && newer(mb.profile.u ? mb.profile : null, om.profile)) {
+        Object.assign(mb.profile, { first: String(om.profile.first).slice(0, 40), last: String(om.profile.last).slice(0, 40), u: om.profile.u }); changed = true;
+      }
+      for (const day in om.tickets || {}) {
+        if (!mb.tickets[day]) { mb.tickets[day] = freshDayTickets(); changed = true; }
+        for (const m in om.tickets[day]) {
+          if (!MEAL[m]) continue;
+          if (newer(mb.tickets[day][m], om.tickets[day][m])) { mb.tickets[day][m] = copy(om.tickets[day][m]); changed = true; }
+        }
+      }
+    }
+    for (const day in o.kitchen || {}) {
+      if (!w.kitchen[day]) { w.kitchen[day] = freshKitchen(); changed = true; }
+      for (const m in o.kitchen[day]) {
+        if (!MEAL[m]) continue;
+        if (newer(w.kitchen[day][m], o.kitchen[day][m])) { w.kitchen[day][m] = copy(o.kitchen[day][m]); changed = true; }
+      }
+    }
+    if (Array.isArray(o.log)) {
+      const seen = new Set(wCur ? w.log.map((l) => l.t + l.msg) : []);
+      const add = o.log.filter((l) => l && !seen.has(l.t + l.msg) && (oCur || l.t > R));
+      if (add.length || !wCur) { w.log = (wCur ? w.log : []).concat(add).sort((a, b) => b.t - a.t).slice(0, 80); changed = changed || add.length > 0; }
+    }
+    if (R !== (w.resetAt || 0)) { w.resetAt = R; changed = true; }
+    return changed;
   }
 
   /* ---------------- Actions ---------------- */
@@ -291,11 +373,12 @@
     const mb = code ? w.members[code] : null;
     const t = mb && meal ? mb.tickets[day][meal] : null;
     if (a.qr && (a.type === 'checkin' || a.type === 'serve')) {
-      const v = verifyQR(w, a.qr, now);
+      const v = verifyQR(w, a.qr, now, a.secretFor);
       if (!v.ok) return fail(v.reason === 'expired' ? 'Code expired' : 'Invalid code');
       if (v.code !== code) return fail('Invalid code');
     }
     let res;
+    const before = snapDay(w, day);
 
     switch (a.type) {
       case 'checkin': {
@@ -366,29 +449,30 @@
       case 'profile': {
         if (!mb) return fail('Unknown corps member.');
         ['first', 'last'].forEach((f) => { if (typeof a[f] === 'string' && a[f].trim()) mb.profile[f] = a[f].trim().slice(0, 40); });
+        mb.profile.u = now;
         res = { ok: true, msg: 'Profile updated', tone: 'green' };
         break;
       }
       case 'reset': {
         const keep = {};
-        for (const c in w.members) keep[c] = { first: w.members[c].profile.first, last: w.members[c].profile.last, secret: w.members[c].secret };
+        for (const c in w.members) keep[c] = w.members[c].profile;
         const fresh = seedWorld(day, now);
         for (const c in keep) if (fresh.members[c]) {
-          Object.assign(fresh.members[c].profile, { first: keep[c].first, last: keep[c].last });
-          if (keep[c].secret) fresh.members[c].secret = keep[c].secret; // phones keep working after a reset
+          const k = keep[c]; Object.assign(fresh.members[c].profile, { first: k.first, last: k.last }, k.u ? { u: k.u } : {});
         }
         const rev = w.rev;
         Object.keys(w).forEach((key) => delete w[key]);
-        Object.assign(w, fresh, { rev });
+        Object.assign(w, fresh, { rev, resetAt: now }); // everything older than this is dropped on every phone
         res = { ok: true, msg: 'Demo reset · fresh tickets & rations', tone: 'green' };
         break;
       }
       default:
         return fail('Unknown action.');
     }
+    if (a.type !== 'reset') stampDay(w, day, before, now);
     w.rev = (w.rev || 0) + 1;
     return res;
   }
 
-  return { MEALS, MEAL, PLATOONS, DEMO_CODE, VERSION: 5, WINDOW_MS, hmacHex, makeQR, parseQR, verifyQR, qrWindow, BATCH, CAMP, CLEARANCE, TODAY_MENU, dkey, shiftDay, currentMeal, seedWorld, ensureDay, apply, stats, queuePos, pendingRollover };
+  return { MEALS, MEAL, PLATOONS, DEMO_CODE, VERSION: 6, WINDOW_MS, hmacHex, memberSecret, merge, slim, makeQR, parseQR, verifyQR, qrWindow, BATCH, CAMP, CLEARANCE, TODAY_MENU, dkey, shiftDay, currentMeal, seedWorld, ensureDay, apply, stats, queuePos, pendingRollover };
 });

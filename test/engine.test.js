@@ -70,19 +70,50 @@ assert.strictEqual(w.members[code].profile.first, 'Ngozi');
 assert.strictEqual(t(w).status, 'ready');
 console.log('All engine tests passed');
 
-// Live QR: signed per member, changes every 30 s, old codes and fakes are rejected
+// Live QR: signed per member, changes every minute, old codes and fakes are rejected
 {
-  const w = fresh(), sec = w.members[code].secret, now = Date.now();
+  const w = fresh(), sec = E.memberSecret('k', code), now = Date.now(), secretFor = (c) => E.memberSecret('k', c);
+  assert.strictEqual(sec, E.memberSecret('k', code), 'same secret on every server instance');
   const qr = E.makeQR(sec, code, day, 'lunch', 'M', now);
-  assert.ok(E.verifyQR(w, qr, now).ok);
-  assert.notStrictEqual(qr, E.makeQR(sec, code, day, 'lunch', 'M', now + 30000), 'code changes each window');
-  assert.strictEqual(E.verifyQR(w, qr, now + 95000).reason, 'expired', 'screenshot of an old code');
+  assert.ok(E.verifyQR(w, qr, now, secretFor).ok);
+  assert.ok(E.verifyQR(w, qr, now + 60000, secretFor).ok, 'previous minute still accepted');
+  assert.notStrictEqual(qr, E.makeQR(sec, code, day, 'lunch', 'M', now + 60000), 'code changes each window');
+  assert.strictEqual(E.verifyQR(w, qr, now + 125000).reason, 'expired', 'screenshot of an old code');
   const forged = qr.replace(/[0-9A-F]{12}$/, 'ABCDEF123456');
-  assert.strictEqual(E.verifyQR(w, forged, now).reason, 'invalid');
-  assert.ok(E.apply(w, { type: 'checkin', day, meal: 'lunch', code, qr, at: now }).ok);
-  const old = E.makeQR(sec, code, day, 'lunch', 'M', now - 120000);
+  assert.strictEqual(E.verifyQR(w, forged, now, secretFor).reason, 'invalid');
+  assert.strictEqual(E.verifyQR(w, E.makeQR(E.memberSecret('other', code), code, day, 'lunch', 'M', now), now, secretFor).reason, 'invalid');
+  assert.ok(E.apply(w, { type: 'checkin', day, meal: 'lunch', code, qr, at: now, secretFor }).ok);
+  const old = E.makeQR(sec, code, day, 'lunch', 'M', now - 180000);
   assert.strictEqual(E.apply(w, { type: 'serve', day, meal: 'lunch', code, qr: old, at: now }).msg, 'Code expired');
 }
+
+// Sync: a server that restarted with fresh data can't push anyone back to Ready
+{
+  const live = fresh(), restarted = fresh();
+  E.apply(live, { type: 'checkin', day, meal: 'lunch', code, at: 1000 });
+  assert.ok(E.merge(restarted, E.slim(live, day)));
+  assert.strictEqual(restarted.members[code].tickets[day].lunch.status, 'queued');
+  assert.ok(!E.merge(live, E.slim(fresh(), day)), 'stale copy changes nothing');
+  assert.strictEqual(t(live).status, 'queued');
+  // serve then undo on another copy: the newest change wins everywhere
+  E.apply(restarted, { type: 'serve', day, meal: 'lunch', code, at: 2000 });
+  E.merge(live, restarted); assert.strictEqual(t(live).status, 'served');
+  E.apply(live, { type: 'undoServe', day, meal: 'lunch', code, at: 900 }); // clock behind: still counts as newer
+  E.merge(restarted, live); assert.strictEqual(restarted.members[code].tickets[day].lunch.status, 'queued');
+  // a demo reset wins over everything that came before it
+  E.apply(live, { type: 'reset', day, at: 5000 });
+  E.merge(restarted, E.slim(live, day));
+  assert.strictEqual(restarted.members[code].tickets[day].lunch.status, 'ready');
+  assert.ok(!E.merge(live, restarted) || t(live).status === 'ready');
+  assert.strictEqual(t(live).status, 'ready');
+  // food finished: rations and rollovers travel too
+  E.apply(live, { type: 'checkin', day, meal: 'lunch', code, at: 6000 });
+  E.apply(live, { type: 'finish', day, meal: 'lunch', at: 7000 });
+  const other = fresh(); E.merge(other, E.slim(live, day));
+  assert.strictEqual(other.members[code].tickets[day].lunch.status, 'rollover');
+  assert.strictEqual(E.stats(other, day, 'lunch').remaining, 0);
+}
+console.log('Sync tests passed');
 
 // Undo a serve: back in line, plate count restored
 {

@@ -20,6 +20,8 @@ READY ──(gate check-in)──▶ IN QUEUE ──(plate handover)──▶ SE
 
 ## Features
 
+- **Live QR:** each code is signed on the phone with the member's secret and changes every minute, offline too. Old screenshots show "Code expired". Set `QR_SECRET_KEY` on the host so secrets can't be guessed.
+- **Consistent state:** every ticket carries the time it last changed. Phones and server merge by keeping the newest version, so a slow or restarted server can never push a ticket back to Ready.
 - **Corps Member view:** live meal ticket with QR code, a status bar showing your queue position, and app colours that follow your ticket status (green ready, amber in queue, deep green served, purple priority). Also Camp ID, Hostel Bunk Pass, Camp Clearance and meal history. Meals: Breakfast from 7:30 AM, Lunch from 2:00 PM, Dinner from 6:30 PM.
 - **Official / Kitchen view:** Gate check-in (search 40 corps members or scan their QR with the camera, on iPhone and Android), a live queue where serving the person at the front moves everyone up on every staff phone, ration inventory, platoon audit and activity log. Every count is derived from real corps member records on the server.
 - **Live sync:** a kitchen phone scans and the corps member's phone updates instantly (Server-Sent Events)
@@ -46,6 +48,9 @@ READY ──(gate check-in)──▶ IN QUEUE ──(plate handover)──▶ SE
 | GET | `/api/members` | Corps member list |
 | GET | `/api/members/:stateCode` | One member's profile, passes, and tickets |
 | POST | `/api/actions` | Apply actions (`checkin`, `serve`, `serveNext`, `addPlates`, `removePlate`, `finish`, `profile`, `reset`); accepts an offline batch |
+| POST | `/api/sync` | Phone and server exchange what they know about today; the newest version of each ticket wins |
+| GET | `/api/secret?code=` | Demo sign-in: the member's QR signing secret |
+| POST | `/api/verify` | Check a live QR code (expired / invalid / ok) |
 | GET | `/api/stream` | Live updates (Server-Sent Events) |
 
 ## Run locally

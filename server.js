@@ -10,6 +10,9 @@ const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'data', 'db.json
 const TZ_OFFSET_MIN = Number(process.env.CAMP_TZ_OFFSET_MIN || 60); // Nigeria (WAT) = UTC+1
 
 const campToday = () => Engine.dkey(new Date(Date.now() + (TZ_OFFSET_MIN + new Date().getTimezoneOffset()) * 60000));
+// Signs every member's QR secret. Set QR_SECRET_KEY on the host so codes can't be forged.
+const QR_KEY = process.env.QR_SECRET_KEY || 'camppass-demo-key';
+const secretFor = (code) => Engine.memberSecret(QR_KEY, code);
 const validDay = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
 
 /* ---------- Storage ----------
@@ -43,7 +46,7 @@ async function refresh() {
     const raw = await redis(['GET', REDIS_KEY]);
     if (raw) {
       const w = JSON.parse(raw);
-      if (w && w.v === Engine.VERSION) world = w;
+      if (w && w.v === Engine.VERSION) { if (Engine.merge(w, world)) await redis(['SET', REDIS_KEY, JSON.stringify(w)]); world = w; }
       else await redis(['SET', REDIS_KEY, JSON.stringify(world)]);
     } else {
       await redis(['SET', REDIS_KEY, JSON.stringify(world)]);
@@ -68,7 +71,7 @@ async function persist() {
 }
 
 // Member secrets never leave the server except to that member's own phone.
-const publicJSON = (w) => JSON.stringify(w, (k, v) => (k === 'secret' ? undefined : v));
+const publicJSON = (w) => JSON.stringify(w);
 const sendWorld = (res, extra) => res.type('application/json').send(`{"world":${publicJSON(world)}${extra ? ',' + JSON.stringify(extra).slice(1, -1) : ''}}`);
 
 /* ---------- Live updates ---------- */
@@ -95,8 +98,20 @@ app.get('/api/state', (req, res) => {
   Engine.ensureDay(world, day);
   if (!hadDay) persist();
   // Cheap polling: the phone sends the rev it has; reply small when nothing changed.
-  if (req.query.rev && Number(req.query.rev) === world.rev && hadDay) return res.json({ same: true, rev: world.rev });
   sendWorld(res, { serverTime: Date.now() });
+});
+
+// Phones send what they know about today; the server keeps the newest version of
+// every ticket. A server instance that restarted with fresh data heals itself here.
+function absorb(day, snap) {
+  Engine.ensureDay(world, day);
+  if (snap && Engine.merge(world, snap)) { world.rev++; return true; }
+  return false;
+}
+app.post('/api/sync', async (req, res) => {
+  const day = validDay(req.body.day) ? req.body.day : campToday();
+  if (absorb(day, req.body.snap)) { await persist(); broadcast(); }
+  res.type('application/json').send(JSON.stringify({ snap: Engine.slim(world, day), rev: world.rev, serverTime: Date.now() }));
 });
 
 app.get('/api/members', (req, res) => {
@@ -115,12 +130,12 @@ app.get('/api/members/:code(*)', (req, res) => {
 app.get('/api/secret', (req, res) => {
   const m = world.members[String(req.query.code || '').toUpperCase()];
   if (!m) return res.status(404).json({ error: 'Not found' });
-  res.json({ code: m.profile.stateCode, secret: m.secret });
+  res.json({ code: m.profile.stateCode, secret: secretFor(m.profile.stateCode) });
 });
 
 // Staff scanners check a live QR before acting on it.
 app.post('/api/verify', (req, res) => {
-  const v = Engine.verifyQR(world, req.body && req.body.qr);
+  const v = Engine.verifyQR(world, req.body && req.body.qr, Date.now(), secretFor);
   res.json({ ok: v.ok, reason: v.reason, code: v.code, meal: v.meal, kind: v.kind, day: v.day });
 });
 
@@ -128,15 +143,18 @@ app.post('/api/verify', (req, res) => {
 app.post('/api/actions', async (req, res) => {
   const list = Array.isArray(req.body.actions) ? req.body.actions.slice(0, 200) : [req.body];
   const results = [];
+  const first = list.find((a) => a && validDay(a.day));
+  absorb(first ? first.day : campToday(), req.body.snap);
   for (const a of list) {
     if (!a || typeof a.type !== 'string' || !validDay(a.day)) { results.push({ ok: false, msg: 'Bad action' }); continue; }
     if (a.meal && !Engine.MEAL[a.meal]) { results.push({ ok: false, msg: 'Bad meal' }); continue; }
     if (a.at && (typeof a.at !== 'number' || a.at > Date.now() + 5 * 60000)) a.at = Date.now();
+    a.secretFor = secretFor;
     try { results.push(Engine.apply(world, a)); } catch (e) { results.push({ ok: false, msg: 'Server error' }); }
   }
   await persist();
   broadcast();
-  sendWorld(res, { results });
+  sendWorld(res, { results, serverTime: Date.now() });
 });
 
 app.get('/api/stream', (req, res) => {
