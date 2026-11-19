@@ -327,6 +327,27 @@ nav.tabs .nb.cnt{min-width:18px;height:18px;top:0;left:calc(50% + 6px);font-size
 .qhead.zero .kbox:first-child b{color:var(--red)}
 .scanbig{min-height:64px;font-size:17px;margin-bottom:14px}
 .sheet .scanner{margin-bottom:12px;max-height:56dvh}
+.phead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 14px}
+.phead .title{margin:0}
+.ticket .top .meal{margin:0 0 12px}
+.bigpos{position:absolute;right:18px;top:14px;font-size:44px;font-weight:900;letter-spacing:-1.5px;line-height:1}
+.note{margin:14px 0 0;text-align:center;font-size:15px;font-weight:700;color:var(--slate-2)}
+.ticket.rollover .note{color:var(--violet)}
+.ticket.queued .note{color:var(--amber-d)}
+.kstrip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 12px}
+.kstrip div{background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:10px 12px}
+.kstrip b{display:block;font-size:24px;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.kstrip span{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.empty{margin:14px 2px;text-align:center;color:var(--muted);font-weight:600}
+.sec svg{width:14px;height:14px;vertical-align:-2px;color:var(--violet)}
+.hi{flex:none;display:inline-block;vertical-align:middle}
+body.has-install main{padding-bottom:calc(180px + var(--safe-b))}
+.hi.bold path,.hi.bold circle{stroke-width:2.4}
+.chip .hi{width:12px;height:12px;margin:-2px 3px 0 0}
+.seg button .hi{margin-bottom:2px}
+.msg .hi{vertical-align:-3px}
+.hitem .em{color:var(--slate-2)}
+.risk{margin:0 0 12px}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
@@ -347,15 +368,12 @@ nav.tabs .nb.cnt{min-width:18px;height:18px;top:0;left:calc(50% + 6px);font-size
     <div class="brand"><img class="mark" src="icons/icon.svg" alt=""><span>CampPass</span></div>
     <div class="role" id="role" role="group" aria-label="Switch view">
       <span class="thumb" id="roleThumb"></span>
-      <button data-role="member" aria-pressed="true">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Corps
+      <button data-role="member" aria-pressed="true"><span id="icoUser"></span>Corps
       </button>
-      <button data-role="kitchen" aria-pressed="false">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg>Official
+      <button data-role="kitchen" aria-pressed="false"><span id="icoChef"></span>Official
       </button>
     </div>
-    <button class="iconbtn" id="menuBtn" aria-label="Settings">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    <button class="iconbtn" id="menuBtn" aria-label="Settings"><span id="icoMenu"></span>
     </button>
   </div>
 </header>
@@ -366,7 +384,7 @@ nav.tabs .nb.cnt{min-width:18px;height:18px;top:0;left:calc(50% + 6px);font-size
 
 <div id="install" aria-live="polite">
   <img src="icons/icon-192.png" alt="">
-  <div class="tx"><b>Install CampPass</b><small>Add to Home Screen. Works with no signal.</small></div>
+  <div class="tx"><b>Install CampPass</b><small>Works offline</small></div>
   <button class="go" id="installGo">Install</button>
   <button class="x" id="installX" aria-label="Not now"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
 </div>
@@ -547,30 +565,17 @@ function payload(m){
   return `CAMPPASS|${kind}|${P().stateCode}|${today()}|${m.toUpperCase()}|${E.token(P().stateCode, today(), m, kind)}`;
 }
 
+/* Icons: Hugeicons (free set, MIT, https://hugeicons.com), inlined so they work offline */
+const HI = {"breakfast": "<path d=\"M18.2505 10.5H19.6403C21.4918 10.5 22.0421 10.7655 21.9975 12.0838C21.9237 14.2674 20.939 16.8047 17 17.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/><path d=\"M5.94627 20.6145C2.57185 18.02 2.07468 14.3401 2.00143 10.5001C1.96979 8.8413 2.45126 8.5 4.65919 8.5H15.3408C17.5487 8.5 18.0302 8.8413 17.9986 10.5001C17.9253 14.3401 17.4281 18.02 14.0537 20.6145C13.0934 21.3528 12.2831 21.5 10.9194 21.5H9.08064C7.71686 21.5 6.90658 21.3528 5.94627 20.6145Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/><path d=\"M11.3089 2.5C10.7622 2.83861 10.0012 4 10.0012 5.5M7.53971 4C7.53971 4 7 4.5 7 5.5M14.0012 4C13.7279 4.1693 13.5 5 13.5 5.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "lunch": "<path d=\"M3.91145 12H18.0886C19.6914 12 20.2786 12.3707 19.8787 13.9821C19.1733 16.8246 17.1759 17.5306 15.3304 19.3859C14.8819 19.8369 15.5798 20.5032 15.5802 20.9992C15.5809 21.933 14.6928 22 13.9854 22H8.0146C7.30717 22 6.41908 21.933 6.41982 20.9992C6.4202 20.5137 7.0972 19.8159 6.66957 19.3859C4.82407 17.5306 2.82674 16.8246 2.12128 13.9821C1.72136 12.3707 2.30857 12 3.91145 12Z\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M18.5 12C18.5 10.2089 16.6001 8.98823 15 9.69218M10 6.96519C9.64708 6.49221 9.13252 6.14848 8.53891 6.01716C6.62631 5.59405 4.90104 7.65834 5.7151 9.49889C4.46855 9.64127 3.5 10.7067 3.5 12M16.292 9.48272C17.0733 7.68217 15.4185 5.58415 13.4611 6.01716C12.9848 3.32761 9.01516 3.32761 8.53891 6.01716\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M17 9L22 3\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M16 6L18 2\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "dinner": "<path d=\"M2 17H22\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/><path d=\"M12 7C12 7 13.5 5.96638 13.5 4.69135C13.5 2.43622 10.5 2.43622 10.5 4.69135C10.5 5.96638 12 7 12 7Z\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M3 17L3.62127 19.4851C3.84385 20.3754 4.64382 21 5.56155 21H18.4384C19.3562 21 20.1561 20.3754 20.3787 19.4851L21 17\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/><path d=\"M20.5 14.5C20.0017 10.2768 16.3861 7 12 7C7.61386 7 3.99834 10.2768 3.5 14.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/>", "tMeal": "<path d=\"M2.46433 9.34375C2.21579 9.34375 1.98899 9.14229 2.00041 8.87895C2.06733 7.33687 2.25481 6.33298 2.78008 5.53884C3.08228 5.08196 3.45765 4.68459 3.88923 4.36468C5.05575 3.5 6.70139 3.5 9.99266 3.5H14.0074C17.2986 3.5 18.9443 3.5 20.1108 4.36468C20.5424 4.68459 20.9177 5.08196 21.2199 5.53884C21.7452 6.33289 21.9327 7.33665 21.9996 8.87843C22.011 9.14208 21.7839 9.34375 21.5351 9.34375C20.1493 9.34375 19.0259 10.533 19.0259 12C19.0259 13.467 20.1493 14.6562 21.5351 14.6562C21.7839 14.6562 22.011 14.8579 21.9996 15.1216C21.9327 16.6634 21.7452 17.6671 21.2199 18.4612C20.9177 18.918 20.5424 19.3154 20.1108 19.6353C18.9443 20.5 17.2986 20.5 14.0074 20.5H9.99266C6.70139 20.5 5.05575 20.5 3.88923 19.6353C3.45765 19.3154 3.08228 18.918 2.78008 18.4612C2.25481 17.667 2.06733 16.6631 2.00041 15.1211C1.98899 14.8577 2.21579 14.6562 2.46433 14.6562C3.85012 14.6562 4.97352 13.467 4.97352 12C4.97352 10.533 3.85012 9.34375 2.46433 9.34375Z\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M9 3.5L9 20.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "tId": "<path d=\"M17 17.5002C16.8206 15.3682 14.9555 13.6804 12.6219 13.5381L12 13.5002C11.7779 13.5058 11.5708 13.5132 11.3755 13.5219C9.06249 13.6256 7.17761 15.3892 7 17.5002\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><circle cx=\"12\" cy=\"8.5\" r=\"2.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M16.5 21.5C17.4293 21.5 17.894 21.5 18.2804 21.4231C19.8671 21.1075 21.1075 19.8671 21.4231 18.2804C21.5 17.894 21.5 17.4293 21.5 16.5M7.5 2.5C6.57069 2.5 6.10603 2.5 5.71964 2.57686C4.13288 2.89249 2.89249 4.13288 2.57686 5.71964C2.5 6.10603 2.5 6.57069 2.5 7.5M7.5 21.5C6.57069 21.5 6.10603 21.5 5.71964 21.4231C4.13288 21.1075 2.89249 19.8671 2.57686 18.2804C2.5 17.894 2.5 17.4293 2.5 16.5M16.5 2.5C17.4293 2.5 17.894 2.5 18.2804 2.57686C19.8671 2.89249 21.1075 4.13288 21.4231 5.71964C21.5 6.10603 21.5 6.57069 21.5 7.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "tPasses": "<path d=\"M18.7088 3.49534C16.8165 2.55382 14.5009 2 12 2C9.4991 2 7.1835 2.55382 5.29116 3.49534C4.36318 3.95706 3.89919 4.18792 3.4496 4.91378C3 5.63965 3 6.34248 3 7.74814V11.2371C3 16.9205 7.54236 20.0804 10.173 21.4338C10.9067 21.8113 11.2735 22 12 22C12.7265 22 13.0933 21.8113 13.8269 21.4338C16.4576 20.0804 21 16.9205 21 11.2371L21 7.74814C21 6.34249 21 5.63966 20.5504 4.91378C20.1008 4.18791 19.6368 3.95706 18.7088 3.49534Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M8.5 14.4984C8.5 12.5654 10.067 10.9984 12 10.9984C13.933 10.9984 15.5 12.5654 15.5 14.4984M14 9C14 10.1046 13.1046 11 12 11C10.8954 11 10 10.1046 10 9C10 7.89543 10.8954 7 12 7C13.1046 7 14 7.89543 14 9Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "tHistory": "<path d=\"M12 8V12L13.5 13.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M19.5454 16.4534C21.1818 17.337 22 17.7789 22 18.5C22 19.2211 21.1818 19.663 19.5454 20.5466L18.4311 21.1484C17.1744 21.827 16.5461 22.1663 16.2439 21.9196C15.504 21.3154 16.6567 19.7561 16.9403 19.2037C17.2277 18.644 17.2225 18.3459 16.9403 17.7963C16.6567 17.2439 15.504 15.6846 16.2439 15.0804C16.5461 14.8337 17.1744 15.173 18.4311 15.8516L19.5454 16.4534Z\" stroke=\"currentColor\" stroke-width=\"1.5\"/><path d=\"M13.0261 21.948C12.6888 21.9824 12.3464 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 12.6849 21.9311 13.3538 21.8 14\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/>", "tGate": "<path d=\"M2.5 8.18677C2.60406 6.08705 2.91537 4.77792 3.84664 3.84664C4.77792 2.91537 6.08705 2.60406 8.18677 2.5M21.5 8.18677C21.3959 6.08705 21.0846 4.77792 20.1534 3.84664C19.2221 2.91537 17.9129 2.60406 15.8132 2.5M15.8132 21.5C17.9129 21.3959 19.2221 21.0846 20.1534 20.1534C21.0846 19.2221 21.3959 17.9129 21.5 15.8132M8.18676 21.5C6.08705 21.3959 4.77792 21.0846 3.84664 20.1534C2.91537 19.2221 2.60406 17.9129 2.5 15.8132\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M10 13C9.06812 13 8.60218 13 8.23463 12.8478C7.74458 12.6448 7.35523 12.2554 7.15224 11.7654C7 11.3978 7 10.9319 7 10C7 9.06812 7 8.60218 7.15224 8.23463C7.35523 7.74458 7.74458 7.35523 8.23463 7.15224C8.60218 7 9.06812 7 10 7C10.9319 7 11.3978 7 11.7654 7.15224C12.2554 7.35523 12.6448 7.74458 12.8478 8.23463C13 8.60218 13 9.06812 13 10C13 10.9319 13 11.3978 12.8478 11.7654C12.6448 12.2554 12.2554 12.6448 11.7654 12.8478C11.3978 13 10.9319 13 10 13Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M17 7V7.01\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M17 11V13C17 14.8856 17 15.8284 16.4142 16.4142C15.8284 17 14.8856 17 13 17\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M9 17H7\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "tQueue": "<path d=\"M18.5 7C18.5 9.20914 16.7091 11 14.5 11C12.2909 11 10.5 9.20914 10.5 7C10.5 4.79086 12.2909 3 14.5 3C16.7091 3 18.5 4.79086 18.5 7Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M8 11C6.34315 11 5 9.65685 5 8C5 6.34315 6.34315 5 8 5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M14.5 14C9.8125 14 7 16.5 7 19C7 20.1046 7.83947 21 8.875 21H20.125C21.1605 21 22 20.1046 22 19C22 16.5 19.1875 14 14.5 14Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M4 19.9992H3.5C2.67157 19.9992 2 19.2317 2 18.2849C2 16.673 3.27307 15.0612 5.5 14.3613\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "tRations": "<path d=\"M21.9998 6.50195L18.5604 9.94129C17.9746 10.5271 17.0249 10.5271 16.4391 9.94129L15.7498 9.25195L15.0604 8.56261C14.4746 7.97683 14.4746 7.02708 15.0604 6.44129L18.4998 3.00195M15.7498 9.25195L3.99976 21.002\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M20 4.99902L17.5 7.49902\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M7.98914 8.99011C6.79472 10.1845 5.15674 10.4831 3.66377 8.99011C2.17075 7.49709 1.38801 4.77783 2.58243 3.58341C3.77685 2.38899 6.49611 3.17172 7.98914 4.66475C9.48211 6.15772 9.18356 7.79569 7.98914 8.99011ZM7.98914 8.99011L20 21.001\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/><path d=\"M9.20542 2.39669C10.0923 2.13908 11.03 2.00098 12 2.00098C13.1517 2.00098 14.2579 2.19567 15.2876 2.55394M2.04937 11.001C2.01672 11.3299 2 11.6635 2 12.001C2 14.0328 2.60598 15.9231 3.64707 17.501M7.77267 21.0661C9.0567 21.6659 10.4892 22.001 12 22.001C13.5244 22.001 14.9691 21.6599 16.262 21.0499M20.3529 17.501C21.394 15.9231 22 14.0328 22 12.001C22 11.4228 21.9509 10.8561 21.8567 10.3048\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/>", "tAudit": "<path d=\"M21 21H10C6.70017 21 5.05025 21 4.02513 19.9749C3 18.9497 3 17.2998 3 14V3\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/><path d=\"M13 10L13 21\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M18 13L18 21\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M8 13L8 20\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M21 7.98693C19.16 7.98693 17.1922 8.24252 15.8771 6.49346C14.3798 4.50218 11.6202 4.50218 10.1229 6.49346C8.80782 8.24252 6.84003 7.98693 5 7.98693H3\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "check": "<path d=\"M5 14L8.5 17.5L19 6.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "star": "<path d=\"M12.7972 2.90494C13.2554 3.57043 13.9479 4.70769 14.6514 6.04507C15.1942 7.07701 15.4657 7.59298 15.8551 7.86959C16.2444 8.14621 16.812 8.2313 17.9472 8.40149C19.5204 8.63736 20.6806 8.89214 21.3467 9.05516C21.735 9.15017 21.9976 9.50036 21.9976 9.9001C21.9976 10.1262 21.9127 10.344 21.7606 10.5113C21.0637 11.2777 20.3487 12.0836 19.4701 12.961C18.605 13.8249 18.1724 14.2569 18.0253 14.7261C17.8781 15.1954 17.9834 15.7792 18.1939 16.9469C18.3735 17.9433 18.5569 19.1306 18.6921 20.4219C18.7528 21.0024 18.2921 21.5 17.7085 21.5C17.6522 21.5 17.5967 21.4962 17.542 21.4824C17.0502 21.3578 15.919 20.7845 14.1246 19.7243C13.0722 19.1025 12.5461 18.7917 11.9993 18.7917C11.4526 18.7917 10.9265 19.1026 9.87427 19.7244C8.08025 20.7845 6.94977 21.3578 6.45797 21.4824C6.40334 21.4962 6.34784 21.5 6.29148 21.5C5.70788 21.5 5.24716 21.0024 5.30793 20.4219C5.44314 19.1306 5.6265 17.9433 5.80612 16.9469C6.01661 15.7792 6.12186 15.1954 5.97471 14.7261C5.82756 14.2569 5.395 13.8249 4.52987 12.961C3.65132 12.0836 2.93633 11.2777 2.23944 10.5113C2.08729 10.344 2.00244 10.1262 2.00244 9.9001C2.00244 9.50036 2.265 9.15017 2.65328 9.05516C3.31945 8.89214 4.4796 8.63736 6.05284 8.40149C7.18801 8.2313 7.75559 8.14621 8.14498 7.86958C8.53437 7.59295 8.80577 7.07698 9.34859 6.04505C10.0521 4.70768 10.7445 3.57044 11.2026 2.90495C11.3825 2.64364 11.6827 2.5 11.9999 2.5C12.3171 2.5 12.6173 2.64364 12.7972 2.90494Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "clock": "<circle cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"1.5\"/><path d=\"M12 8V12L14 14\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "plate": "<path d=\"M18.4301 13C18.7891 13.5166 19 14.1471 19 14.8276C19 16.5796 17.6018 18 15.8771 18C15.5726 18 15.2783 17.9557 15 17.8732M18.9805 10C20.7855 11.0188 22 12.924 22 15.1063C22 18.3613 19.298 21 15.9648 21C14.4472 21 13.0605 20.453 12 19.5499\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/><circle cx=\"9\" cy=\"10\" r=\"4\" stroke=\"currentColor\" stroke-width=\"1.5\"/><circle cx=\"9\" cy=\"10\" r=\"7\" stroke=\"currentColor\" stroke-width=\"1.5\"/>", "cam": "<path d=\"M12.6974 3.5H11.303C10.5884 3.5 10.2311 3.5 9.91067 3.612C9.71499 3.68039 9.53113 3.77879 9.36568 3.90367C9.09474 4.10816 8.89655 4.40544 8.50018 5L8.50017 5.00001C8.29717 5.30453 7.99794 5.75337 7.87867 5.87871C7.58314 6.18927 7.19563 6.39666 6.77329 6.47029C6.60284 6.5 6.41985 6.5 6.05387 6.5C5.07379 6.5 4.58376 6.5 4.18307 6.61342C3.18074 6.89716 2.39734 7.68055 2.1136 8.68289C2.00018 9.08357 2.00018 9.57361 2.00018 10.5537V14.5C2.00018 17.3284 2.00018 18.7426 2.87886 19.6213C3.75754 20.5 5.17176 20.5 8.00018 20.5H16.0002C18.8286 20.5 20.2428 20.5 21.1215 19.6213C22.0002 18.7426 22.0002 17.3284 22.0002 14.5V10.5537C22.0002 9.57361 22.0002 9.08357 21.8868 8.68289C21.603 7.68055 20.8196 6.89716 19.8173 6.61342C19.4166 6.5 18.9266 6.5 17.9465 6.5C17.5805 6.5 17.3975 6.5 17.2271 6.47029C16.8047 6.39666 16.4172 6.18927 16.1217 5.87871C16.0024 5.75336 15.7032 5.30451 15.5002 5C15.1038 4.40544 14.9056 4.10816 14.6347 3.90367C14.4692 3.77879 14.2854 3.68039 14.0897 3.612C13.7693 3.5 13.412 3.5 12.6974 3.5Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M16.0002 13C16.0002 15.2091 14.2093 17 12.0002 17C9.79104 17 8.00018 15.2091 8.00018 13C8.00018 10.7909 9.79104 9 12.0002 9C14.2093 9 16.0002 10.7909 16.0002 13Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M19.1252 9.5H19.0002M19.2502 9.5C19.2502 9.63807 19.1383 9.75 19.0002 9.75C18.8621 9.75 18.7502 9.63807 18.7502 9.5C18.7502 9.36193 18.8621 9.25 19.0002 9.25C19.1383 9.25 19.2502 9.36193 19.2502 9.5Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/>", "bed": "<path d=\"M2 11H17\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M2 8H22\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M6.5 5C5.8956 5 5.32433 5.1287 4.81768 5.35753C4.48573 5.50746 4.31975 5.58242 4.15988 5.83005C4 6.07769 4 6.32443 4 6.8179V8H9V6.8179C9 6.32443 9 6.07769 8.84013 5.83005C8.68025 5.58242 8.51427 5.50746 8.18232 5.35753C7.67567 5.1287 7.1044 5 6.5 5Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/><path d=\"M6.5 14C5.79893 14 5.14245 14.1732 4.57968 14.4749C4.47363 14.5317 4.4206 14.5602 4.33052 14.6414C4.20736 14.7524 4.06861 14.9842 4.02898 15.1452C4 15.2629 4 15.3595 4 15.5525C4 15.9692 4 16.1776 4.06113 16.3443C4.16232 16.6202 4.37978 16.8377 4.65572 16.9389C4.82243 17 5.03079 17 5.44751 17H7.55249C7.96921 17 8.17757 17 8.34428 16.9389C8.62022 16.8377 8.83768 16.6202 8.93887 16.3443C9 16.1776 9 15.9692 9 15.5525C9 15.3595 9 15.2629 8.97102 15.1452C8.93139 14.9842 8.79263 14.7524 8.66948 14.6414C8.5794 14.5602 8.52637 14.5317 8.42032 14.4749C7.85755 14.1732 7.20107 14 6.5 14Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/><path d=\"M2 17H17\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M2 20H22\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M17 12L22 12\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M17 16H22\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M22 4L22 22\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M17 4L17 22\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M2 4L2 22\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "shield": "<path d=\"M18.9905 19H19M18.9905 19C18.3678 19.6175 17.2393 19.4637 16.4479 19.4637C15.4765 19.4637 15.0087 19.6537 14.3154 20.347C13.7251 20.9374 12.9337 22 12 22C11.0663 22 10.2749 20.9374 9.68457 20.347C8.99128 19.6537 8.52349 19.4637 7.55206 19.4637C6.76068 19.4637 5.63218 19.6175 5.00949 19C4.38181 18.3776 4.53628 17.2444 4.53628 16.4479C4.53628 15.4414 4.31616 14.9786 3.59938 14.2618C2.53314 13.1956 2.00002 12.6624 2 12C2.00001 11.3375 2.53312 10.8044 3.59935 9.73817C4.2392 9.09832 4.53628 8.46428 4.53628 7.55206C4.53628 6.76065 4.38249 5.63214 5 5.00944C5.62243 4.38178 6.7556 4.53626 7.55208 4.53626C8.46427 4.53626 9.09832 4.2392 9.73815 3.59937C10.8044 2.53312 11.3375 2 12 2C12.6625 2 13.1956 2.53312 14.2618 3.59937C14.9015 4.23907 15.5355 4.53626 16.4479 4.53626C17.2393 4.53626 18.3679 4.38247 18.9906 5C19.6182 5.62243 19.4637 6.75559 19.4637 7.55206C19.4637 8.55858 19.6839 9.02137 20.4006 9.73817C21.4669 10.8044 22 11.3375 22 12C22 12.6624 21.4669 13.1956 20.4006 14.2618C19.6838 14.9786 19.4637 15.4414 19.4637 16.4479C19.4637 17.2444 19.6182 18.3776 18.9905 19Z\" stroke=\"currentColor\" stroke-width=\"1.5\"/><path d=\"M9 12.8929C9 12.8929 10.2 13.5447 10.8 14.5C10.8 14.5 12.6 10.75 15 9.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "x": "<path d=\"M18.9991 19L5 5.00098\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M19 5L5.00092 18.999\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "alert": "<path d=\"M13.9248 21H10.0752C5.44476 21 3.12955 21 2.27636 19.4939C1.42317 17.9879 2.60736 15.9914 4.97574 11.9985L6.90057 8.75333C9.17559 4.91778 10.3131 3 12 3C13.6869 3 14.8244 4.91777 17.0994 8.75332L19.0243 11.9985C21.3926 15.9914 22.5768 17.9879 21.7236 19.4939C20.8704 21 18.5552 21 13.9248 21Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M12 9V13\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M12.125 16.75H12M12.25 16.75C12.25 16.8881 12.1381 17 12 17C11.8619 17 11.75 16.8881 11.75 16.75C11.75 16.6119 11.8619 16.5 12 16.5C12.1381 16.5 12.25 16.6119 12.25 16.75Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "search": "<path d=\"M17 17L21 21\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19C15.4183 19 19 15.4183 19 11Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "menu": "<path d=\"M4 5L20 5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M4 12L20 12\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M4 19L20 19\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "user": "<path d=\"M20 21.0001C19.713 17.269 16.7289 14.3151 12.995 14.0662L12 13.9999C11.6446 14.0096 11.3134 14.0225 11.0008 14.0378C7.3 14.2192 4.28417 17.3057 4 21.0001\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><circle cx=\"12\" cy=\"6.99988\" r=\"4\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "chef": "<path d=\"M18 13C20.2091 13 22 11.2091 22 9C22 6.79086 20.2091 5 18 5C17.1767 5 16.4115 5.24874 15.7754 5.67518M6 13C3.79086 13 2 11.2091 2 9C2 6.79086 3.79086 5 6 5C6.82332 5 7.58854 5.24874 8.22461 5.67518M15.7754 5.67518C15.2287 4.11714 13.7448 3 12 3C10.2552 3 8.77132 4.11714 8.22461 5.67518M15.7754 5.67518C15.9209 6.08981 16 6.53566 16 7C16 7.3453 15.9562 7.68038 15.874 8M9.46487 7C9.15785 6.46925 8.73238 6.0156 8.22461 5.67518\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M6 17.5C7.59905 16.8776 9.69952 16.5 12 16.5C14.3005 16.5 16.401 16.8776 18 17.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/><path d=\"M5 21C6.86556 20.3776 9.3161 20 12 20C14.6839 20 17.1344 20.3776 19 21\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/><path d=\"M18 12V20M6 12V20\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/>", "install": "<path d=\"M16.9504 12.1817C17.1981 12.814 16.5076 13.5726 15.1267 15.0899C13.6702 16.6902 12.9201 17.4904 12 17.5C11.0799 17.4904 10.3298 16.6902 8.87331 15.0899C7.49239 13.5726 6.80193 12.814 7.04964 12.1817C7.05868 12.1586 7.06851 12.1359 7.0791 12.1135C7.34928 11.542 8.24477 11.5029 10 11.5002V4.99998C10 4.53501 10 4.30253 10.0511 4.11179C10.1898 3.59414 10.5941 3.1898 11.1118 3.05111C11.3025 3 11.535 3 12 3C12.4649 3 12.6974 3 12.8882 3.05111C13.4058 3.1898 13.8102 3.59414 13.9489 4.11179C14 4.30253 14 4.53501 14 4.99998V11.5002C15.7552 11.5029 16.6507 11.542 16.9209 12.1135C16.9315 12.1359 16.9413 12.1586 16.9504 12.1817Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M5.00006 21H19.0001\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "edit": "<path d=\"M16.4249 4.60509L17.4149 3.6151C18.2351 2.79497 19.5648 2.79497 20.3849 3.6151C21.205 4.43524 21.205 5.76493 20.3849 6.58507L19.3949 7.57506M16.4249 4.60509L9.76558 11.2644C9.25807 11.772 8.89804 12.4078 8.72397 13.1041L8 16L10.8959 15.276C11.5922 15.102 12.228 14.7419 12.7356 14.2344L19.3949 7.57506M16.4249 4.60509L19.3949 7.57506\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M18.9999 13.5C18.9999 16.7875 18.9999 18.4312 18.092 19.5376C17.9258 19.7401 17.7401 19.9258 17.5375 20.092C16.4312 21 14.7874 21 11.4999 21H11C7.22876 21 5.34316 21 4.17159 19.8284C3.00003 18.6569 3 16.7712 3 13V12.5C3 9.21252 3 7.56879 3.90794 6.46244C4.07417 6.2599 4.2599 6.07417 4.46244 5.90794C5.56879 5 7.21252 5 10.5 5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "reset": "<path d=\"M20.4879 15C19.2524 18.4956 15.9187 21 12 21C7.02943 21 3 16.9706 3 12C3 7.02943 7.02943 3 12 3C15.7292 3 18.9286 5.26806 20.2941 8.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M15 9H18C19.4142 9 20.1213 9 20.5607 8.56066C21 8.12132 21 7.41421 21 6V3\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "idcard": "<path d=\"M17 17.5002C16.8206 15.3682 14.9555 13.6804 12.6219 13.5381L12 13.5002C11.7779 13.5058 11.5708 13.5132 11.3755 13.5219C9.06249 13.6256 7.17761 15.3892 7 17.5002\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><circle cx=\"12\" cy=\"8.5\" r=\"2.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M16.5 21.5C17.4293 21.5 17.894 21.5 18.2804 21.4231C19.8671 21.1075 21.1075 19.8671 21.4231 18.2804C21.5 17.894 21.5 17.4293 21.5 16.5M7.5 2.5C6.57069 2.5 6.10603 2.5 5.71964 2.57686C4.13288 2.89249 2.89249 4.13288 2.57686 5.71964C2.5 6.10603 2.5 6.57069 2.5 7.5M7.5 21.5C6.57069 21.5 6.10603 21.5 5.71964 21.4231C4.13288 21.1075 2.89249 19.8671 2.57686 18.2804C2.5 17.894 2.5 17.4293 2.5 16.5M16.5 2.5C17.4293 2.5 17.894 2.5 18.2804 2.57686C19.8671 2.89249 21.1075 4.13288 21.4231 5.71964C21.5 6.10603 21.5 6.57069 21.5 7.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "offline": "<path d=\"M8.5 15.9996C9.36651 15.1331 10.4207 14.642 11.5 14.5264\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M5.5 12.5C8.67327 9.32673 12.6221 8.67087 16 10.5324\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M2 8.5C8.31579 3.16669 15.6842 3.16668 22 8.49989\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M21.0002 13.5L15.0002 19.5M21.0002 19.5L15.0002 13.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/>", "share": "<path d=\"M21 6.5C21 8.15685 19.6569 9.5 18 9.5C16.3431 9.5 15 8.15685 15 6.5C15 4.84315 16.3431 3.5 18 3.5C19.6569 3.5 21 4.84315 21 6.5Z\" stroke=\"currentColor\" stroke-width=\"1.5\"/><path d=\"M9 12C9 13.6569 7.65685 15 6 15C4.34315 15 3 13.6569 3 12C3 10.3431 4.34315 9 6 9C7.65685 9 9 10.3431 9 12Z\" stroke=\"currentColor\" stroke-width=\"1.5\"/><path d=\"M21 17.5C21 19.1569 19.6569 20.5 18 20.5C16.3431 20.5 15 19.1569 15 17.5C15 15.8431 16.3431 14.5 18 14.5C19.6569 14.5 21 15.8431 21 17.5Z\" stroke=\"currentColor\" stroke-width=\"1.5\"/><path d=\"M8.72852 10.7495L15.2285 7.75M8.72852 13.25L15.2285 16.2495\" stroke=\"currentColor\" stroke-width=\"1.5\"/>", "add": "<path d=\"M12 3.00005C16.2426 3.00005 18.364 3.00005 19.682 4.31807C21 5.63609 21 7.75741 21 12.0001C21 16.2427 21 18.364 19.682 19.682C18.364 21.0001 16.2426 21.0001 12 21.0001C7.75736 21.0001 5.63604 21.0001 4.31802 19.682C3 18.364 3 16.2427 3 12.0001C3 7.75741 3 5.63609 4.31802 4.31807C5.63604 3.00005 7.75736 3.00005 12 3.00005Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M12.0001 8.00005V12.0001M12.0001 12.0001V16.0001M12.0001 12.0001H16.0001M12.0001 12.0001H8.00006\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "minus": "<path d=\"M20 12L4 12\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>", "plus": "<path d=\"M12 4V20M20 12H4\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>"};
+const hi = (n, size=20, cls='') => `<svg class="hi ${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true">${HI[n]||''}</svg>`;
 const ICON = {
-  check:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
-  bigcheck:'<svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
-  star:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4L2.8 9.5l6.4-.8z"/></svg>',
-  clock:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
-  plate:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/></svg>',
-  scan:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg>',
-  cam:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l2-2h6l2 2h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="4"/></svg>',
-  bed:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18V6M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5"/><circle cx="7" cy="10.5" r="1.8"/></svg>',
-  shield:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>',
-  x:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
-  arrow:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
-  alert:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3l10 18H2z"/><path d="M12 10v4M12 17.5v.5"/></svg>',
+  check: hi('check', 16, 'bold'), bigcheck: hi('check', 46, 'bold'), star: hi('star', 16), clock: hi('clock', 16),
+  plate: hi('plate'), scan: hi('tGate'), cam: hi('cam', 22), bed: hi('bed', 26), shield: hi('shield', 26),
+  x: hi('x', 16, 'bold'), alert: hi('alert', 18), search: hi('search'), user: hi('user', 16), chef: hi('chef', 16)
 };
 const TAB_ICONS = {
-  meal:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/><path d="M14 6v12" stroke-dasharray="2 2.5"/></svg>',
-  id:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="11" r="2.4"/><path d="M5.8 17c.6-1.8 1.8-2.6 3.2-2.6s2.6.8 3.2 2.6M15 10h3M15 14h3"/></svg>',
-  passes:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>',
-  history:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>',
-  scan:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg>',
-  gate:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M8 12l3 3 5-6"/></svg>',
-  queue:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7" r="2.5"/><circle cx="12" cy="7" r="2.5"/><circle cx="18" cy="7" r="2.5"/><path d="M2.5 19c.5-3 2-4.5 3.5-4.5S9 16 9.5 19M8.5 19c.5-3 2-4.5 3.5-4.5s3 1.5 3.5 4.5M14.5 19c.5-3 2-4.5 3.5-4.5s3 1.5 3.5 4.5"/></svg>',
-  rations:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/></svg>',
-  audit:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+  meal: hi('tMeal', 24), id: hi('tId', 24), passes: hi('tPasses', 24), history: hi('tHistory', 24),
+  gate: hi('tGate', 24), queue: hi('tQueue', 24), rations: hi('tRations', 24), audit: hi('tAudit', 24)
 };
 
 let toastTimer;
@@ -647,7 +652,7 @@ function render(){
   const animate = app.dataset.key !== key;
   app.dataset.key = key;
   const search = document.activeElement && document.activeElement.id === 'gateSearch';
-  app.innerHTML = `${isK ? '' : statusBar()}<div class="${animate?'view':''}">${html}</div>`;
+  app.innerHTML = `<div class="${animate?'view':''}">${html}</div>`;
   if (search){ const i = $('#gateSearch'); if (i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
   filterGate();
 }
@@ -681,7 +686,7 @@ function mealSeg(code=U.me){
     const t = T(m.id, code);
     const st = t.status==='rollover' && t.redeemedAt ? 'served' : t.status;
     const col = {queued:'var(--amber)', served:'var(--green)', rollover:'var(--violet)'}[st];
-    return `<button data-meal="${m.id}" aria-pressed="${m.id===U.meal}">${col?`<span class="mdot" style="background:${col}"></span>`:''}${m.emoji} ${m.name}<small>${m.short}</small></button>`;
+    return `<button data-meal="${m.id}" aria-pressed="${m.id===U.meal}">${col?`<span class="mdot" style="background:${col}"></span>`:''}${hi(m.id, 18)} ${m.name}<small>${m.short}</small></button>`;
   }).join('')}</div>`;
 }
 
@@ -690,77 +695,59 @@ function steps(t){
   const s2 = st==='queued' ? 'now' : (st==='served'||ro) ? 'done' : '';
   const s3 = st==='served' || (ro && t.redeemedAt) ? 'done' : ro ? 'vio' : '';
   return `<div class="steps" aria-label="Ticket progress">
-    <div class="step done"><span class="c">${ICON.check}</span>Ticket ready</div>
-    <div class="step ${s2}"><span class="c">${s2==='done'?ICON.check:'2'}</span>Checked in</div>
-    <div class="step ${s3}"><span class="c">${s3==='done'?ICON.check:ro?ICON.star:'3'}</span>${ro?'Priority pass':'Served'}</div>
+    <div class="step done"><span class="c">${ICON.check}</span>Ready</div>
+    <div class="step ${s2}"><span class="c">${s2==='done'?ICON.check:'2'}</span>In queue</div>
+    <div class="step ${s3}"><span class="c">${s3==='done'?ICON.check:ro?ICON.star:'3'}</span>${ro?'Priority':'Served'}</div>
   </div>`;
 }
 
+function pageHead(title){
+  return `<div class="phead"><h2 class="title">${title}</h2>${net==='live'||net==='local'?'':onlineState()}</div>`;
+}
 function vMeal(){
-  const m = MEAL[U.meal], t = T(), sts = ST(), st = t.status;
-  const pr = E.pendingRollover(W, U.me, today());
-  let badge, msg = '', qrClass = '', overlay = '', cls = st;
-  if (st==='ready'){
-    badge = `<span class="badge solid"><span class="pulse"></span>READY · UNCLAIMED</span>`;
-    msg = pr && pr.meal !== U.meal
-      ? `<div class="msg vio"><b>⭐ Priority lane:</b> you have an unredeemed rollover from ${MEAL[pr.meal].name}. Show it at the front of the queue.</div>`
-      : `<div class="msg info">Show this QR at the kitchen gate. Your ticket is <b>only marked as used when your plate is handed to you</b>, not at the gate.</div>`;
-  } else if (st==='queued'){
-    badge = `<span class="badge solid"><span class="pulse"></span>CHECKED IN · AWAITING PLATE</span>`;
-    msg = `<div class="msg warn"><b>You're #${qpos()} in the queue.</b> 1 ration is reserved for you. If food finishes before you're served, you automatically get a Priority Rollover Pass.</div>`;
-  } else if (st==='served'){
-    badge = `<span class="badge solid">${ICON.check} SERVED</span>`;
-    qrClass = 'dim'; overlay = `<div class="over"><div class="big">${ICON.bigcheck}</div></div>`;
-    msg = `<div class="msg info">Enjoy your meal! Plate handover confirmed at <b>${fmtTime(t.servedAt)}</b>.</div>`;
-  } else if (st==='rollover' && t.redeemedAt){
-    cls = 'served';
-    badge = `<span class="badge solid">${ICON.check} PRIORITY PASS REDEEMED</span>`;
-    qrClass='dim'; overlay = `<div class="over"><div class="big" style="background:var(--violet)">${ICON.bigcheck}</div></div>`;
-    msg = `<div class="msg info">Food ran out at ${fmtTime(t.rolledAt)}, but your protected meal was served at <b>${fmtTime(t.redeemedAt)}</b> from the next batch. No meal lost.</div>`;
-  } else {
-    badge = `<span class="badge solid">${ICON.star} UNSERVED · PRIORITY ROLLOVER</span>`;
-    msg = `<div class="msg vio"><b>Food finished before you reached the serving point.</b> Your gate check-in at ${fmtTime(t.checkedInAt)} proves you came, so this ticket is now a <b>Priority Rollover Pass</b>. Use it at the front of the next batch or the next meal.</div>`;
-  }
-  const rows = st==='queued'
-    ? `<div><span>Checked in</span><b>${fmtTime(t.checkedInAt)}</b></div><div><span>Ahead of you</span><b>${qpos()-1} · ${sts.remaining} plates left</b></div>`
-    : st==='served'
-    ? `<div><span>Checked in</span><b>${fmtTime(t.checkedInAt)}</b></div><div><span>Served</span><b>${fmtTime(t.servedAt)}</b></div>`
-    : st==='rollover'
-    ? `<div><span>Checked in</span><b>${fmtTime(t.checkedInAt)}</b></div><div><span>${t.redeemedAt?'Served':'Food finished'}</span><b>${fmtTime(t.redeemedAt||t.rolledAt)}</b></div>`
-    : `<div><span>Serving</span><b>${m.time.replace(' – ','–')}</b></div><div><span>On the menu</span><b>${esc(t.menu||E.TODAY_MENU[U.meal])}</b></div>`;
-  const open = st==='ready' || st==='queued' || (st==='rollover' && !t.redeemedAt);
-  const kind = st==='rollover' && !t.redeemedAt ? 'PRIORITY' : 'MEAL';
+  const m = MEAL[U.meal], t = T(), st = t.status;
+  const redeemed = st==='rollover' && t.redeemedAt;
+  const priority = st==='rollover' && !redeemed;
+  const pos = st==='queued' ? qpos() : null;
+  const badge = {
+    ready: 'READY',
+    queued: 'IN QUEUE',
+    served: `${ICON.check} SERVED`,
+    rollover: redeemed ? `${ICON.check} SERVED` : `${ICON.star} PRIORITY PASS`,
+    missed: 'NOT USED'
+  }[st];
+  const note = {
+    ready: 'Show this at the kitchen gate',
+    queued: 'A plate is reserved for you',
+    served: `Served at ${fmtTime(t.servedAt)}`,
+    rollover: redeemed ? `Served with priority at ${fmtTime(t.redeemedAt)}` : `Food finished at ${fmtTime(t.rolledAt)}. You're first in the next batch.`,
+    missed: ''
+  }[st];
+  const done = st==='served' || redeemed;
+  const kind = priority ? 'PRIORITY' : 'MEAL';
   return `
-    <div style="margin:8px 0 12px">
-      <h2 class="title" style="margin:0">Hi, ${esc(P().first)} 👋</h2>
-      <p class="sub" style="margin:2px 0 8px">${new Date().toLocaleDateString([], {weekday:'long', day:'numeric', month:'long'})}</p>
-      ${onlineState()}
-    </div>
+    ${pageHead(`Hi, ${esc(P().first)}`)}
     ${mealSeg()}
-    <article class="ticket ${cls}" aria-live="polite">
+    <article class="ticket ${done?'served':st}" aria-live="polite">
       <div class="top">
-        <div class="k">Meal ticket · Platoon ${P().platoon}</div>
-        <div class="meal">${m.emoji} ${m.name}</div>
-        ${badge}
+        <div class="meal">${hi(m.id, 28)} ${m.name}</div>
+        <span class="badge solid">${st==='queued'||st==='ready'?'<span class="pulse"></span>':''}${badge}</span>
+        ${st==='queued' ? `<div class="bigpos" aria-label="Queue position">#${pos}</div>` : ''}
       </div>
       <div class="tear"><i></i></div>
       <div class="body">
-        <div class="qrwrap"><div class="qr ${qrClass}">${qrSvg(payload(U.meal), kind==='PRIORITY'?'#4C1D95':'#0F172A')}${overlay}</div></div>
+        <div class="qrwrap"><div class="qr ${done?'dim':''}">${qrSvg(payload(U.meal), priority?'#4C1D95':'#0F172A')}${done?`<div class="over"><div class="big"${redeemed?' style="background:var(--violet)"':''}>${ICON.bigcheck}</div></div>`:''}</div></div>
         <div class="code">${esc(P().stateCode)} · ${E.token(P().stateCode, today(), U.meal, kind)}</div>
         ${steps(t)}
-        ${msg}
-        <div class="rows">${rows}</div>
+        ${note ? `<p class="note">${note}</p>` : ''}
       </div>
-    </article>
-    ${open ? `<button class="hint" data-go="kitchen">${ICON.scan}<span><b>Demo tip:</b> switch to <b>Official</b> view (or open CampPass on a second phone) to scan this ticket.</span></button>`:''}
-  `;
+    </article>`;
 }
 
 function vId(){
   const p = P();
   return `
-    <h2 class="title">Camp ID</h2>
-    <p class="sub">Show this to camp officials and soldiers on duty.</p>
+    ${pageHead('Camp ID')}
     <article class="idcard">
       <div class="flag"><i style="background:#008751"></i><i style="background:#fff"></i><i style="background:#008751"></i></div>
       <div class="band"><div class="k">NATIONAL YOUTH SERVICE CORPS</div><div class="t">Orientation Camp ID</div></div>
@@ -769,80 +756,65 @@ function vId(){
         <div style="padding-bottom:4px;min-width:0"><div class="n">${esc(p.first)} ${esc(p.last)}</div><div class="sc">${esc(p.stateCode)}</div></div>
       </div>
       <div class="grid">
-        <div><span>Platoon</span><b>Platoon ${p.platoon}</b></div>
-        <div><span>Hostel & bunk</span><b>${esc(p.hostel)}, ${esc(p.bunk)}</b></div>
-        <div style="grid-column:1/-1"><span>Batch</span><b>${esc(E.BATCH)}</b></div>
+        <div><span>Platoon</span><b>${p.platoon}</b></div>
+        <div><span>Hostel</span><b>${esc(p.hostel)}, ${esc(p.bunk)}</b></div>
         <div style="grid-column:1/-1"><span>Camp</span><b>${esc(E.CAMP)}</b></div>
       </div>
-      <div class="qrrow">
-        <div class="qr">${qrSvg(`CAMPPASS|ID|${p.stateCode}|${p.first} ${p.last}|P${p.platoon}|${p.hostel}-${p.bunk}`)}</div>
-        <div><div style="margin-bottom:8px">${onlineState()}</div><p>Scannable even with no network. Your pass is stored on this phone.</p></div>
+      <div class="qrrow" style="justify-content:center">
+        <div class="qr" style="width:168px;height:168px">${qrSvg(`CAMPPASS|ID|${p.stateCode}|${p.first} ${p.last}|P${p.platoon}|${p.hostel}-${p.bunk}`)}</div>
       </div>
-    </article>
-`;
+    </article>`;
 }
 
 function vPasses(){
-  const p = P(), cleared = ME().cleared || {}, cl = E.CLEARANCE.map(c=>Object.assign({ok:!!cleared[c.id], at:cleared[c.id]}, c)), done = cl.filter(c=>c.ok).length, pct = Math.round(done/cl.length*100);
+  const p = P(), cleared = ME().cleared || {}, cl = E.CLEARANCE.map(c=>Object.assign({ok:!!cleared[c.id]}, c)), done = cl.filter(c=>c.ok).length, pct = Math.round(done/cl.length*100);
   return `
-    <h2 class="title">Passes</h2>
-    <p class="sub">Your accommodation and clearance, all in one place.</p>
+    ${pageHead('Passes')}
     <div class="card">
       <div class="pass">
         <div class="ic" style="background:var(--green-l);color:var(--green-d)">${ICON.bed}</div>
-        <div style="min-width:0"><h3>Hostel Bunk Pass</h3><p>${esc(p.hostel)} · ${esc(p.bunk)}</p></div>
+        <div style="min-width:0"><h3>Hostel</h3><p>${esc(p.hostel)} · ${esc(p.bunk)}</p></div>
         <span class="verified">${ICON.check}Verified</span>
-      </div>
-      <div class="rows" style="margin-top:14px">
-        <div><span>Hostel</span><b>${esc(p.hostel)}</b></div>
-        <div><span>Bunk</span><b>${esc(p.bunk)}</b></div>
-        <div><span>Hostel warden</span><b>Mrs. Bello</b></div>
-        <div><span>Lights out</span><b>10:00 PM</b></div>
       </div>
     </div>
     <div class="card">
       <div class="pass">
         <div class="ic" style="background:#EEF2FF;color:#4338CA">${ICON.shield}</div>
-        <div style="min-width:0"><h3>Camp Clearance</h3><p>${done} of ${cl.length} complete</p></div>
+        <div style="min-width:0"><h3>Clearance</h3><p>${done} of ${cl.length} done</p></div>
         <b style="margin-left:auto;font-size:22px;color:var(--green-d)">${pct}%</b>
       </div>
       <div class="progress"><i style="width:${pct}%"></i></div>
-      <div style="margin-top:8px">
-        ${cl.map(c=>`<div class="check ${c.ok?'ok':'no'}"><span class="bx">${c.ok?ICON.check:''}</span><span class="tx"><b>${esc(c.name)}</b><small>${esc(c.note)} · ${c.ok?fmtDay(E.dkey(new Date(c.at))):'Pending'}</small></span></div>`).join('')}
+      <div style="margin-top:6px">
+        ${cl.map(c=>`<div class="check ${c.ok?'ok':'no'}"><span class="bx">${c.ok?ICON.check:''}</span><span class="tx"><b>${esc(c.name)}</b></span></div>`).join('')}
       </div>
     </div>`;
 }
 
 function statusChip(t){
-  if (t.status==='served') return `<span class="chip served">${t.priority?'⭐ ':''}SERVED</span>`;
+  if (t.status==='served') return `<span class="chip served">${t.priority?ICON.star:''}SERVED</span>`;
   if (t.status==='queued') return `<span class="chip queued">IN QUEUE</span>`;
-  if (t.status==='rollover') return t.redeemedAt ? `<span class="chip served">⭐ SERVED</span>` : `<span class="chip rollover">ROLLOVER</span>`;
+  if (t.status==='rollover') return t.redeemedAt ? `<span class="chip served">${ICON.star}SERVED</span>` : `<span class="chip rollover">${ICON.star}PRIORITY</span>`;
   if (t.status==='missed') return `<span class="chip missed">NOT USED</span>`;
   return `<span class="chip ready">READY</span>`;
 }
 function vHistory(){
   const tk = ME().tickets, days = Object.keys(tk).sort().reverse();
-  let served=0, ro=0, lost=0;
+  let served=0, ro=0;
   days.forEach(d=>MEALS.forEach(m=>{ const t=tk[d][m.id]; if(!t) return;
     if (t.status==='served' || (t.status==='rollover'&&t.redeemedAt)) served++;
     if (t.status==='rollover') ro++; }));
   return `
-    <h2 class="title">Meal History</h2>
-    <p class="sub">Every gate check-in and plate handover, with times.</p>
+    ${pageHead('History')}
     <div class="stats3">
-      <div class="stat"><b style="color:var(--green-d)">${served}</b><span>Meals eaten</span></div>
-      <div class="stat"><b style="color:var(--violet)">${ro}</b><span>Rollovers</span></div>
-      <div class="stat"><b>${lost}</b><span>Meals lost</span></div>
+      <div class="stat"><b style="color:var(--green-d)">${served}</b><span>Eaten</span></div>
+      <div class="stat"><b style="color:var(--violet)">${ro}</b><span>Priority</span></div>
+      <div class="stat"><b>0</b><span>Lost</span></div>
     </div>
     ${days.map(d=>`
-      <div class="day"><h4>${fmtDay(d)}</h4><div class="card" style="padding:12px 16px;margin:0">
+      <div class="day"><h4>${fmtDay(d)}</h4><div class="card" style="padding:8px 16px;margin:0">
         ${MEALS.map(m=>{ const t=tk[d][m.id]; if(!t) return '';
-          let sub = esc(t.menu||E.TODAY_MENU[m.id]);
-          if (t.status==='served') sub += ` · Served ${fmtTime(t.servedAt)}`;
-          else if (t.status==='queued') sub += ` · In queue since ${fmtTime(t.checkedInAt)}`;
-          else if (t.status==='rollover') sub += t.redeemedAt ? ` · Food ran out, priority-served ${fmtTime(t.redeemedAt)}` : ` · Food finished ${fmtTime(t.rolledAt)}`;
-          else if (t.status==='ready') sub += ` · ${m.time}`;
-          return `<div class="hitem"><span class="em">${m.emoji}</span><span class="tx"><b>${m.name}</b><small>${sub}</small></span>${statusChip(t)}</div>`;
+          const when = t.status==='served' ? fmtTime(t.servedAt) : t.status==='queued' ? fmtTime(t.checkedInAt) : t.status==='rollover' ? fmtTime(t.redeemedAt||t.rolledAt) : t.status==='ready' ? m.short : '';
+          return `<div class="hitem"><span class="em">${hi(m.id, 22)}</span><span class="tx"><b>${m.name}</b><small>${when}</small></span>${statusChip(t)}</div>`;
         }).join('')}
       </div></div>`).join('')}`;
 }
@@ -850,14 +822,14 @@ function vHistory(){
 /* ---------- Official / kitchen views (all counts derived from member records) ---------- */
 function kitchenMeta(){
   const st = ST();
-  return `<div style="display:flex;align-items:center;gap:8px;margin:-4px 0 14px;flex-wrap:wrap">${onlineState()}<span class="status-pill local">${MEAL[U.meal].name} · ${st.remaining} plates left · ${st.queue.length} in queue</span></div>`;
+  return `<div class="kstrip"><div><b>${st.remaining}</b><span>Plates left</span></div><div><b>${st.queue.length}</b><span>In queue</span></div><div><b>${st.served}</b><span>Served</span></div></div>`;
 }
 const waited = (ts) => { const m = Math.max(0, Math.round((Date.now()-ts)/60000)); return m < 1 ? 'just now' : `${m} min`; };
 function personRow(code, right){
   const p = W.members[code].profile;
   return `<div class="prow" data-row="${esc(code)}" data-find="${esc((p.first+' '+p.last+' '+code+' platoon '+p.platoon).toLowerCase())}">
     <span class="av">${initials(p)}</span>
-    <span class="who"><b>${esc(p.first)} ${esc(p.last)}${code===U.me?' <em>this phone</em>':''}</b><small>${esc(code)} · Platoon ${p.platoon}</small></span>
+    <span class="who"><b>${esc(p.first)} ${esc(p.last)}</b><small>${esc(code)} · P${p.platoon}</small></span>
     ${right}</div>`;
 }
 function vGate(){
@@ -867,19 +839,17 @@ function vGate(){
   codes.sort((a,b)=> (b===U.me)-(a===U.me) || order[T(U.meal,a).status]-order[T(U.meal,b).status] || W.members[a].profile.first.localeCompare(W.members[b].profile.first));
   const ready = codes.filter(c=>T(U.meal,c).status==='ready').length;
   return `
-    <h2 class="title">Kitchen Gate</h2>
-    <p class="sub">Step 1: scan or tap a corps member to check them in. They join the live queue on every staff phone.</p>
-    ${kitchenMeta()}
+    ${pageHead('Gate')}
     ${mealSeg()}
-    <button class="btn amber scanbig" data-scanner="checkin">${ICON.cam}Scan QR to check in</button>
-    <div class="searchbox">${ICON.scan}<input id="gateSearch" type="search" placeholder="Search name, state code or platoon" value="${esc(U.q)}" autocomplete="off" enterkeyhint="search"></div>
-    <div class="sec" style="margin-top:6px">${ready} waiting to check in · ${codes.length} corps members</div>
+    ${kitchenMeta()}
+    <button class="btn amber scanbig" data-scanner="checkin">${ICON.cam}Scan to check in</button>
+    <div class="searchbox">${ICON.scan}<input id="gateSearch" type="search" placeholder="Search name or state code" value="${esc(U.q)}" autocomplete="off" enterkeyhint="search"></div>
     <div class="card plist" id="gateList">
       ${codes.map(c=>{
         const t = T(U.meal,c);
         let right;
         if (t.status==='ready') right = `<button class="mini amber" data-checkin="${esc(c)}" ${st.remaining<=0?'disabled':''}>Check in</button>`;
-        else if (t.status==='queued') right = `<span class="chip queued">#${qpos(U.meal,c)} IN QUEUE</span>`;
+        else if (t.status==='queued') right = `<span class="chip queued">#${qpos(U.meal,c)}</span>`;
         else right = statusChip(t);
         return personRow(c, right);
       }).join('')}
@@ -887,30 +857,20 @@ function vGate(){
 }
 function vQueue(){
   const st = ST();
-  const head = st.priority.length && st.remaining>0 ? st.priority[0] : st.queue[0];
+  const short = st.remaining>0 ? Math.max(0, st.queue.length - st.remaining) : 0;
   return `
-    <h2 class="title">Live Queue</h2>
-    <p class="sub">Step 2: confirm the plate handover. Everyone behind moves up instantly.</p>
+    ${pageHead('Queue')}
     ${mealSeg()}
-    <button class="btn primary scanbig" data-scanner="serve">${ICON.cam}Scan QR to serve</button>
-    <div class="card qhead ${st.remaining===0?'zero':''}">
-      <div class="kgrid">
-        <div class="kbox"><span>Plates left</span><b>${st.remaining}</b></div>
-        <div class="kbox"><span>In queue</span><b>${st.queue.length}</b></div>
-      </div>
-      ${head ? `<button class="btn ${head.t.status==='rollover'?'violet':'primary'}" data-serve="${esc(head.code)}" style="margin-top:12px">${head.t.status==='rollover'?ICON.star:ICON.check}Serve ${esc(head.p.first)} ${esc(head.p.last)}</button>`
-             : `<div class="msg info" style="margin-top:12px">Nobody is waiting. Check people in at the <b>Gate</b> tab.</div>`}
-      ${st.queue.length > st.remaining && st.remaining>0 ? `<div class="risk">${ICON.alert}<span>${st.queue.length-st.remaining} in the queue won't get a plate. They'll get Priority Rollover Passes automatically.</span></div>`:''}
-      ${st.remaining===0 && (st.priority.length) ? `<div class="msg vio" style="margin-top:12px">Food finished. Add the next batch on <b>Rations</b> to serve priority passes first.</div>`:''}
-    </div>
-    ${st.priority.length ? `<div class="sec">Priority rollover · served first</div>
-      <div class="card plist">${st.priority.map(x=>personRow(x.code, `<button class="mini violet" data-serve="${esc(x.code)}" ${st.remaining<=0?'disabled':''}>Serve</button>`)).join('')}</div>`:''}
-    <div class="sec">Waiting for a plate</div>
-    <div class="card plist">
+    ${kitchenMeta()}
+    <button class="btn primary scanbig" data-scanner="serve">${ICON.cam}Scan to serve</button>
+    ${short ? `<div class="risk">${ICON.alert}<span>${short} won't get a plate</span></div>` : ''}
+    ${st.priority.length ? `<div class="sec">${ICON.star} Priority · serve first</div>
+      <div class="card plist">${st.priority.map(x=>personRow(x.code, `<button class="mini violet" data-serve="${esc(x.code)}" ${st.remaining<=0?'disabled':''} aria-label="Serve ${esc(x.p.first)}">${ICON.check}</button>`)).join('')}</div>`:''}
+    <div class="card plist" style="margin-top:${st.priority.length?0:4}px">
       ${st.queue.length ? st.queue.map((x,i)=>`<div class="qline ${i===0?'first':''} ${fresh.has(x.code)?'fresh':''}"><span class="qn">${i+1}</span>${personRow(x.code, `<span class="wait">${waited(x.t.checkedInAt)}</span><button class="mini green" data-serve="${esc(x.code)}" aria-label="Serve ${esc(x.p.first)}">${ICON.check}</button>`)}</div>`).join('')
-        : '<p class="sub" style="margin:6px 2px">Queue is empty.</p>'}
+        : '<p class="empty">No one waiting</p>'}
     </div>
-    <button class="btn danger" data-act="finish" ${st.remaining===0?'disabled':''}>${ICON.alert}Simulate Food Finished</button>`;
+    <button class="btn danger" data-act="finish" ${st.remaining===0?'disabled':''}>${ICON.alert}Food finished</button>`;
 }
 // highlight people who just joined the queue
 let lastQueue = null, fresh = new Set();
@@ -923,22 +883,20 @@ function trackQueue(){
 function vRations(){
   const st = ST(), rem = st.remaining, q = st.queue.length;
   const tone = rem===0 ? 'zero' : rem <= q ? 'low' : '';
-  const tot = Math.max(1, st.cooked), short = Math.max(0, q - rem);
+  const tot = Math.max(1, st.cooked);
   return `
-    <h2 class="title">Ration Inventory</h2>
-    <p class="sub">Live count for ${MEAL[U.meal].name}, worked out from every plate handed over.</p>
-    ${kitchenMeta()}
+    ${pageHead('Rations')}
     ${mealSeg()}
     <div class="card">
       <div class="kgrid">
         <div class="kbox big ${tone}">
-          <div><span>Remaining plates</span><b>${rem}</b></div>
+          <div><span>Plates left</span><b>${rem}</b></div>
           <div class="stepper"><button data-act="minus" aria-label="Remove one plate">−</button><button data-act="plus" aria-label="Add one plate">+</button></div>
         </div>
-        <div class="kbox"><span>Total cooked</span><b>${st.cooked}</b></div>
-        <div class="kbox"><span>Plates served</span><b style="color:var(--green-d)">${st.served}</b></div>
-        <div class="kbox"><span>In-queue reserved</span><b style="color:var(--amber-d)">${q}</b></div>
-        <div class="kbox"><span>Priority rollovers</span><b style="color:var(--violet)">${st.rollovers}</b></div>
+        <div class="kbox"><span>Cooked</span><b>${st.cooked}</b></div>
+        <div class="kbox"><span>Served</span><b style="color:var(--green-d)">${st.served}</b></div>
+        <div class="kbox"><span>In queue</span><b style="color:var(--amber-d)">${q}</b></div>
+        <div class="kbox"><span>Priority</span><b style="color:var(--violet)">${st.rollovers}</b></div>
       </div>
       <div class="meter">
         <i style="width:${st.served/tot*100}%;background:var(--green)"></i>
@@ -946,12 +904,10 @@ function vRations(){
         <i style="width:${Math.max(0,rem-q)/tot*100}%;background:#CBD5E1"></i>
       </div>
       <div class="legend"><span><i style="background:var(--green)"></i>Served</span><span><i style="background:var(--amber)"></i>Reserved</span><span><i style="background:#CBD5E1"></i>Free</span></div>
-      ${short>0 && rem>0 ? `<div class="risk">${ICON.alert}<span>${short} corps member${short>1?'s':''} in the queue won't get a plate. They will be protected with a Priority Rollover Pass automatically.</span></div>`:''}
-      ${rem===0 ? `<div class="risk" style="background:var(--red-l);color:#7f1d1d">${ICON.alert}<span>Food finished. Nobody in the queue was marked as fed. All were issued priority passes.</span></div>`:''}
     </div>
     <div class="stack">
-      <button class="btn danger" data-act="finish" ${rem===0?'disabled':''}>${ICON.alert}Simulate Food Finished (Set Rations to 0)</button>
-      <button class="btn ghost" data-act="batch">${ICON.plate}Add Next Batch (+20 plates)</button>
+      <button class="btn ghost" data-act="batch">${ICON.plate}Add next batch (+20)</button>
+      <button class="btn danger" data-act="finish" ${rem===0?'disabled':''}>${ICON.alert}Food finished</button>
     </div>`;
 }
 
@@ -961,23 +917,22 @@ function vAudit(){
   const dc = {served:'var(--green)', queued:'var(--amber)', rollover:'var(--violet)', alert:'var(--red)', info:'#94A3B8'};
   const myP = P().platoon;
   return `
-    <h2 class="title">Platoon Ration Audit</h2>
-    <p class="sub">${MEAL[U.meal].name} · ${fmtDay(today())}. Every plate is backed by a timestamped check-in.</p>
+    ${pageHead('Audit')}
     ${mealSeg()}
     <div class="stats3">
       <div class="stat"><b style="color:var(--green-d)">${ts}</b><span>Served</span></div>
-      <div class="stat"><b style="color:var(--violet)">${tr}</b><span>Rollovers</span></div>
+      <div class="stat"><b style="color:var(--violet)">${tr}</b><span>Priority</span></div>
       <div class="stat"><b style="color:var(--amber-d)">${st.queue.length}</b><span>In queue</span></div>
     </div>
     <div class="card">
       <table class="audit">
-        <thead><tr><th>Platoon</th><th class="n">Served</th><th class="n">Queue</th><th class="n">Rollover</th></tr></thead>
+        <thead><tr><th>Platoon</th><th class="n">Served</th><th class="n">Queue</th><th class="n">Priority</th></tr></thead>
         <tbody>${rows.map(([p,v])=>`<tr class="${p===myP?'me':''}"><td><b>Platoon ${p}</b><div class="bar"><i style="width:${v.s/mx*100}%;background:var(--green)"></i><i style="width:${v.q/mx*100}%;background:var(--amber)"></i><i style="width:${v.r/mx*100}%;background:var(--violet)"></i></div></td><td class="n">${v.s}</td><td class="n" style="color:${v.q?'var(--amber-d)':'inherit'}">${v.q}</td><td class="n" style="color:${v.r?'var(--violet)':'inherit'}">${v.r}</td></tr>`).join('')}</tbody>
       </table>
     </div>
-    <div class="sec">Activity log</div>
+    <div class="sec">Activity</div>
     <div class="card" style="padding:6px 16px">
-      <ul class="log">${W.log.slice(0,15).map(l=>`<li><time>${fmtTime(l.t)}</time><span class="d" style="background:${dc[l.type]||'#94A3B8'}"></span><span>${esc(l.msg)}</span></li>`).join('') || '<li>No activity yet.</li>'}</ul>
+      <ul class="log">${W.log.slice(0,8).map(l=>`<li><time>${fmtTime(l.t)}</time><span class="d" style="background:${dc[l.type]||'#94A3B8'}"></span><span>${esc(l.msg)}</span></li>`).join('') || '<li>No activity yet.</li>'}</ul>
     </div>`;
 }
 
@@ -988,15 +943,15 @@ function openSheet(html){ $('#sheet').innerHTML = `<div class="grab"></div>${htm
 function closeSheet(){ stopCamera(); $('#sheet').classList.remove('open'); $('#scrim').classList.remove('open'); }
 
 function settingsSheet(){
-  const mode = net==='local' ? 'On-device mode (no server found)' : net==='live' ? 'Connected to CampPass server · live sync on' : 'Server unreachable · changes saved on this phone';
+  const mode = net==='live' ? 'Live sync on' : net==='local' ? 'On-device mode' : 'Offline · changes saved';
   openSheet(`
     <h3>Settings</h3>
     <p>${esc(mode)}</p>
-    ${!isStandalone() ? `<button class="srow" data-act="install"><span class="ic">📲</span><span style="flex:1"><b>Install app</b><small>Add CampPass to your Home Screen</small></span></button>`:''}
-    <button class="srow" data-act="whoami"><span class="ic">🪪</span><span style="flex:1"><b>Signed in as</b><small>${esc(P().first)} ${esc(P().last)} · ${esc(P().stateCode)}</small></span><span style="color:var(--muted);font-size:13px;font-weight:700">Change</span></button>
-    <button class="srow" data-act="editname"><span class="ic">✏️</span><span style="flex:1"><b>Edit name</b><small>Use your own name for the demo video</small></span></button>
-    <button class="srow" data-act="reset"><span class="ic">🔄</span><span style="flex:1"><b>Reset Demo State</b><small>Fresh tickets and ration counts on every phone</small></span></button>
-    <div class="srow"><span class="ic"><img src="icons/icon.svg" width="26" height="26" alt="" style="border-radius:7px"></span><span style="flex:1"><b>CampPass v1.0</b><small>Two-step meal verification for NYSC camps · works offline</small></span></div>
+    ${!isStandalone() ? `<button class="srow" data-act="install"><span class="ic">${hi('install')}</span><span style="flex:1"><b>Install app</b></span></button>`:''}
+    <button class="srow" data-act="whoami"><span class="ic">${hi('idcard')}</span><span style="flex:1"><b>Signed in as</b><small>${esc(P().first)} ${esc(P().last)} · ${esc(P().stateCode)}</small></span><span style="color:var(--muted);font-size:13px;font-weight:700">Change</span></button>
+    <button class="srow" data-act="editname"><span class="ic">${hi('edit')}</span><span style="flex:1"><b>Edit name</b></span></button>
+    <button class="srow" data-act="reset"><span class="ic">${hi('reset')}</span><span style="flex:1"><b>Reset demo</b></span></button>
+    <div class="srow"><span class="ic"><img src="icons/icon.svg" width="26" height="26" alt="" style="border-radius:7px"></span><span style="flex:1"><b>CampPass v1.0</b></span></div>
     <button class="btn ghost" data-act="close" style="margin-top:8px">Done</button>`);
 }
 function whoSheet(){
@@ -1043,10 +998,8 @@ function loadJsQR(){
 }
 function openScanner(mode){
   const title = mode === 'checkin' ? 'Scan to check in' : 'Scan to serve';
-  const sub = mode === 'checkin' ? 'Point the camera at the meal ticket or Camp ID QR. They join the live queue.' : 'Scan when the plate is handed over. The ticket is marked served.';
   openSheet(`
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><h3>${title}</h3><span class="chip ${mode==='checkin'?'queued':'served'}">${MEAL[U.meal].name.toUpperCase()}</span></div>
-    <p>${sub}</p>
     <div class="scanner" id="scanBox"><video playsinline muted autoplay></video><div class="frame"></div><div class="laser"></div></div>
     <div id="scanMsg" class="msg info" style="margin:0 0 12px">Starting camera…</div>
     <div class="stack"><button class="btn ghost" data-act="close">Done</button></div>`);
@@ -1080,7 +1033,7 @@ async function startCamera(mode){
       return r ? r.data : null;
     };
   }
-  scanMsg('Ready. Hold the QR code inside the frame.');
+  scanMsg('Point at the QR code');
   let busy = false;
   camLoop = setInterval(async () => {
     if (busy || !camStream) return; busy = true;
@@ -1100,16 +1053,16 @@ function handleScan(val, mode){
     const meal = (parts[4]||'').toLowerCase();
     if (MEAL[meal] && meal !== U.meal){ U.meal = meal; saveAll(); render(); }
   }
-  const t = T(U.meal, code), who = `<b>${esc(p.first)} ${esc(p.last)}</b> · ${esc(code)}`;
+  const t = T(U.meal, code), who = `<b>${esc(p.first)} ${esc(p.last)}</b>`;
   if (mode === 'checkin'){
-    if (t.status === 'ready'){ const r = act({type:'checkin', code}); return r.ok ? scanMsg(`✅ ${who} checked in · #${qpos(U.meal, code)} in queue`, 'info') : scanMsg(esc(r.msg), 'warn'); }
-    if (t.status === 'queued') return scanMsg(`${who} is already in the queue (#${qpos(U.meal, code)}).`, 'warn');
-    if (t.status === 'rollover' && !t.redeemedAt) return scanMsg(`⭐ ${who} holds a Priority Pass. Serve them first on the Queue tab.`, 'vio');
-    return scanMsg(`${who} has already been served for ${MEAL[U.meal].name}.`, 'warn');
+    if (t.status === 'ready'){ const r = act({type:'checkin', code}); return r.ok ? scanMsg(`${ICON.check} ${who} · #${qpos(U.meal, code)} in queue`, 'info') : scanMsg(esc(r.msg), 'warn'); }
+    if (t.status === 'queued') return scanMsg(`${who} · already #${qpos(U.meal, code)} in queue`, 'warn');
+    if (t.status === 'rollover' && !t.redeemedAt) return scanMsg(`${ICON.star} ${who} · priority pass`, 'vio');
+    return scanMsg(`${who} · already served`, 'warn');
   }
-  if (t.status === 'queued' || (t.status === 'rollover' && !t.redeemedAt)){ const r = act({type:'serve', code}); return r.ok ? scanMsg(`🍽️ ${who} served`, 'info') : scanMsg(esc(r.msg), 'warn'); }
-  if (t.status === 'ready') return scanMsg(`${who} has not checked in at the gate yet.`, 'warn');
-  return scanMsg(`${who} has already been served for ${MEAL[U.meal].name}.`, 'warn');
+  if (t.status === 'queued' || (t.status === 'rollover' && !t.redeemedAt)){ const r = act({type:'serve', code}); return r.ok ? scanMsg(`${ICON.check} ${who} served`, 'info') : scanMsg(esc(r.msg), 'warn'); }
+  if (t.status === 'ready') return scanMsg(`${who} · not checked in yet`, 'warn');
+  return scanMsg(`${who} · already served`, 'warn');
 }
 function stopCamera(){
   clearInterval(camLoop); camLoop = null;
@@ -1126,10 +1079,10 @@ function showInstall(){
   if (isStandalone()) return;
   let snoozed = 0; try { snoozed = +localStorage.getItem('camppass.installSnooze')||0; } catch(e){}
   if (Date.now() - snoozed < 20*60000) return;
-  if (deferredPrompt || isIOS()) $('#install').classList.add('show');
+  if (deferredPrompt || isIOS()){ $('#install').classList.add('show'); document.body.classList.add('has-install'); }
 }
 async function doInstall(){
-  $('#install').classList.remove('show');
+  $('#install').classList.remove('show'); document.body.classList.remove('has-install');
   if (deferredPrompt){
     deferredPrompt.prompt();
     const {outcome} = await deferredPrompt.userChoice; deferredPrompt = null;
@@ -1138,7 +1091,7 @@ async function doInstall(){
   else openSheet(`<h3>Install CampPass</h3><p>Open your browser menu <b>⋮</b> and tap <b>Install app</b> or <b>Add to Home screen</b>.</p><button class="btn primary" data-act="close">Got it</button>`);
 }
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; if (splashDone) setTimeout(showInstall, 600); });
-window.addEventListener('appinstalled', () => { $('#install').classList.remove('show'); toast('CampPass installed 🎉'); });
+window.addEventListener('appinstalled', () => { $('#install').classList.remove('show'); document.body.classList.remove('has-install'); toast('CampPass installed'); });
 
 /* =========================================================
    Events
@@ -1172,7 +1125,7 @@ document.addEventListener('click', e => {
 $('#menuBtn').addEventListener('click', settingsSheet);
 $('#scrim').addEventListener('click', closeSheet);
 $('#installGo').addEventListener('click', doInstall);
-$('#installX').addEventListener('click', ()=>{ $('#install').classList.remove('show'); try{ localStorage.setItem('camppass.installSnooze', Date.now()); }catch(e){} });
+$('#installX').addEventListener('click', ()=>{ $('#install').classList.remove('show'); document.body.classList.remove('has-install'); try{ localStorage.setItem('camppass.installSnooze', Date.now()); }catch(e){} });
 addEventListener('scroll', ()=>$('#hdr').classList.toggle('scrolled', scrollY>4), {passive:true});
 addEventListener('resize', placeThumb);
 addEventListener('storage', e => { if (e.key===WKEY){ const w = read(WKEY); if (w && w.v===E.VERSION){ W = w; render(); } } });
@@ -1182,6 +1135,8 @@ setInterval(()=>{ if (outbox.length && net!=='local') flush(); }, 10000);
 /* =========================================================
    Boot
    ========================================================= */
+$('#icoUser').outerHTML = hi('user', 16); $('#icoChef').outerHTML = hi('chef', 16); $('#icoMenu').outerHTML = hi('menu', 24);
+$('#installX').innerHTML = hi('x', 18, 'bold');
 ensure(); render();
 setTimeout(()=>{ $('#splash').classList.add('gone'); splashDone = true; placeThumb(); setTimeout(showInstall, 1200); }, 1400);
 if (location.protocol === 'file:') setNet('local'); else connect();
