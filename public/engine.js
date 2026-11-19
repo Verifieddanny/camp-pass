@@ -113,6 +113,7 @@
     if (idx % 2 === 1) cleared.obs = at(d4, 8, 30);
     return {
       profile: person,
+      secret: newSecret(),
       cleared,
       tickets
     };
@@ -139,7 +140,7 @@
     now = now || Date.now();
     const members = {};
     allPeople().forEach((p, i) => (members[p.stateCode] = seedMember(p, today, i)));
-    const w = { v: 4, rev: 1, members, kitchen: {}, log: [] };
+    const w = { v: 5, rev: 1, members, kitchen: {}, log: [] };
     w.kitchen[today] = freshKitchen();
     seedToday(w, today, now);
     addLog(w, now - 60000, 'info', 'Kitchen opened: 40 plates cooked per meal');
@@ -190,11 +191,80 @@
     return null;
   }
 
-  function token(code, day, meal, kind) {
-    const s = code + day + meal + kind;
-    let h = 2166136261;
-    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-    return (h >>> 0).toString(16).toUpperCase().padStart(8, '0').slice(0, 6);
+  /* ---------------- Live QR (TOTP-style, works offline) ----------------
+   * Each corps member has a private secret. Their phone signs
+   *   code | day | meal | kind | window   (window = 30-second time slot)
+   * with HMAC-SHA256, so the QR changes every 30 seconds and can be made
+   * with no network. The server (and any scanner holding the secret)
+   * recomputes the signature: a screenshot or an old code fails.
+   */
+  const WINDOW_MS = 30000;
+  const K256 = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  function sha256(bytes) {
+    const l = bytes.length, withPad = ((l + 9 + 63) >> 6) << 6, m = new Uint8Array(withPad);
+    m.set(bytes); m[l] = 0x80;
+    const bits = l * 8; m[withPad - 4] = bits >>> 24; m[withPad - 3] = bits >>> 16; m[withPad - 2] = bits >>> 8; m[withPad - 1] = bits;
+    let h = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+    const w = new Uint32Array(64), r = (x, n) => (x >>> n) | (x << (32 - n));
+    for (let o = 0; o < withPad; o += 64) {
+      for (let i = 0; i < 16; i++) w[i] = (m[o + i * 4] << 24) | (m[o + i * 4 + 1] << 16) | (m[o + i * 4 + 2] << 8) | m[o + i * 4 + 3];
+      for (let i = 16; i < 64; i++) {
+        const s0 = r(w[i - 15], 7) ^ r(w[i - 15], 18) ^ (w[i - 15] >>> 3), s1 = r(w[i - 2], 17) ^ r(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+      }
+      let [a, b, c, d, e, f, g, hh] = h;
+      for (let i = 0; i < 64; i++) {
+        const t1 = (hh + (r(e, 6) ^ r(e, 11) ^ r(e, 25)) + ((e & f) ^ (~e & g)) + K256[i] + w[i]) | 0;
+        const t2 = ((r(a, 2) ^ r(a, 13) ^ r(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+        hh = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+      }
+      h = [h[0] + a, h[1] + b, h[2] + c, h[3] + d, h[4] + e, h[5] + f, h[6] + g, h[7] + hh].map((x) => x | 0);
+    }
+    const out = new Uint8Array(32);
+    h.forEach((x, i) => { out[i * 4] = x >>> 24; out[i * 4 + 1] = x >>> 16; out[i * 4 + 2] = x >>> 8; out[i * 4 + 3] = x; });
+    return out;
+  }
+  const utf8 = (str) => new TextEncoder().encode(str);
+  const hexToBytes = (hex) => new Uint8Array(hex.match(/../g).map((x) => parseInt(x, 16)));
+  const toHex = (b) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+  function hmacHex(secretHex, msg) {
+    let key = hexToBytes(secretHex);
+    if (key.length > 64) key = sha256(key);
+    const k = new Uint8Array(64); k.set(key);
+    const ipad = k.map((x) => x ^ 0x36), opad = k.map((x) => x ^ 0x5c), mb = utf8(msg);
+    const inner = new Uint8Array(64 + mb.length); inner.set(ipad); inner.set(mb, 64);
+    const ih = sha256(inner), outer = new Uint8Array(96); outer.set(opad); outer.set(ih, 64);
+    return toHex(sha256(outer));
+  }
+  function newSecret() {
+    const b = new Uint8Array(16);
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(b);
+    else for (let i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256);
+    return toHex(b);
+  }
+  const qrWindow = (now) => Math.floor((now || Date.now()) / WINDOW_MS);
+  const sigFor = (secret, code, day, meal, kind, win) => hmacHex(secret, `${code}|${day}|${meal}|${kind}|${win}`).slice(0, 12).toUpperCase();
+
+  // kind: M = meal ticket, P = priority pass, I = camp ID (meal is '-')
+  function makeQR(secret, code, day, meal, kind, now) {
+    const win = qrWindow(now);
+    return `CP|${code}|${day}|${meal}|${kind}|${win}|${sigFor(secret, code, day, meal, kind, win)}`;
+  }
+  function parseQR(text) {
+    const p = String(text || '').split('|');
+    if (p[0] !== 'CP' || p.length !== 7) return null;
+    return { code: p[1], day: p[2], meal: p[3], kind: p[4], win: Number(p[5]), sig: p[6] };
+  }
+  // Returns { ok, reason?, ...parsed }. With no secret available (a staff phone offline),
+  // only the time window is checked; the server re-checks the signature when it syncs.
+  function verifyQR(w, text, now, secretOverride) {
+    const q = parseQR(text);
+    if (!q || !w.members[q.code]) return { ok: false, reason: 'invalid' };
+    const nowWin = qrWindow(now);
+    if (q.win < nowWin - 1 || q.win > nowWin + 1) return Object.assign({ ok: false, reason: 'expired' }, q);
+    const secret = secretOverride || w.members[q.code].secret;
+    if (secret && sigFor(secret, q.code, q.day, q.meal, q.kind, q.win) !== q.sig) return Object.assign({ ok: false, reason: 'invalid' }, q);
+    return Object.assign({ ok: true, verified: !!secret }, q);
   }
 
   // Plates ran out: nobody still in the queue is silently "ticked". They all roll over.
@@ -220,6 +290,11 @@
     }
     const mb = code ? w.members[code] : null;
     const t = mb && meal ? mb.tickets[day][meal] : null;
+    if (a.qr && (a.type === 'checkin' || a.type === 'serve')) {
+      const v = verifyQR(w, a.qr, now);
+      if (!v.ok) return fail(v.reason === 'expired' ? 'Code expired' : 'Invalid code');
+      if (v.code !== code) return fail('Invalid code');
+    }
     let res;
 
     switch (a.type) {
@@ -255,6 +330,16 @@
         res = { ok: true, msg: `${mb.profile.first} served · plate handed over`, tone: 'green', fx: 'served', code };
         break;
       }
+      case 'undoServe': {
+        if (!t) return fail('Unknown corps member.');
+        if (!t.servedAt || now - t.servedAt > 5 * 60000) return fail('Too late to undo.');
+        if (t.status === 'rollover' && t.redeemedAt) { delete t.redeemedAt; delete t.servedAt; delete t.priority; }
+        else if (t.status === 'served') { t.status = 'queued'; delete t.servedAt; }
+        else return fail('Nothing to undo.');
+        addLog(w, now, 'info', `${nm(w, code)}: serve undone`);
+        res = { ok: true, msg: `Undone · ${mb.profile.first} back in line`, tone: 'amber' };
+        break;
+      }
       case 'addPlates': {
         const n = Math.max(1, Math.min(500, a.n | 0));
         w.kitchen[day][meal].cooked += n;
@@ -286,9 +371,12 @@
       }
       case 'reset': {
         const keep = {};
-        for (const c in w.members) keep[c] = { first: w.members[c].profile.first, last: w.members[c].profile.last };
+        for (const c in w.members) keep[c] = { first: w.members[c].profile.first, last: w.members[c].profile.last, secret: w.members[c].secret };
         const fresh = seedWorld(day, now);
-        for (const c in keep) if (fresh.members[c]) Object.assign(fresh.members[c].profile, keep[c]);
+        for (const c in keep) if (fresh.members[c]) {
+          Object.assign(fresh.members[c].profile, { first: keep[c].first, last: keep[c].last });
+          if (keep[c].secret) fresh.members[c].secret = keep[c].secret; // phones keep working after a reset
+        }
         const rev = w.rev;
         Object.keys(w).forEach((key) => delete w[key]);
         Object.assign(w, fresh, { rev });
@@ -302,5 +390,5 @@
     return res;
   }
 
-  return { MEALS, MEAL, PLATOONS, DEMO_CODE, VERSION: 4, BATCH, CAMP, CLEARANCE, TODAY_MENU, dkey, shiftDay, currentMeal, seedWorld, ensureDay, apply, stats, queuePos, pendingRollover, token };
+  return { MEALS, MEAL, PLATOONS, DEMO_CODE, VERSION: 5, WINDOW_MS, hmacHex, makeQR, parseQR, verifyQR, qrWindow, BATCH, CAMP, CLEARANCE, TODAY_MENU, dkey, shiftDay, currentMeal, seedWorld, ensureDay, apply, stats, queuePos, pendingRollover };
 });

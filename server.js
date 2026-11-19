@@ -67,10 +67,14 @@ async function persist() {
   }, 150);
 }
 
+// Member secrets never leave the server except to that member's own phone.
+const publicJSON = (w) => JSON.stringify(w, (k, v) => (k === 'secret' ? undefined : v));
+const sendWorld = (res, extra) => res.type('application/json').send(`{"world":${publicJSON(world)}${extra ? ',' + JSON.stringify(extra).slice(1, -1) : ''}}`);
+
 /* ---------- Live updates ---------- */
 const clients = new Set();
 function broadcast() {
-  const msg = `event: world\ndata: ${JSON.stringify(world)}\n\n`;
+  const msg = `event: world\ndata: ${publicJSON(world)}\n\n`;
   for (const res of clients) res.write(msg);
 }
 setInterval(() => { for (const res of clients) res.write(': ping\n\n'); }, 25000);
@@ -92,7 +96,7 @@ app.get('/api/state', (req, res) => {
   if (!hadDay) persist();
   // Cheap polling: the phone sends the rev it has; reply small when nothing changed.
   if (req.query.rev && Number(req.query.rev) === world.rev && hadDay) return res.json({ same: true, rev: world.rev });
-  res.json({ world, serverTime: Date.now() });
+  sendWorld(res, { serverTime: Date.now() });
 });
 
 app.get('/api/members', (req, res) => {
@@ -104,7 +108,20 @@ app.get('/api/members', (req, res) => {
 app.get('/api/members/:code(*)', (req, res) => {
   const m = world.members[req.params.code.toUpperCase()];
   if (!m) return res.status(404).json({ error: 'Not found' });
-  res.json(m);
+  res.type('application/json').send(publicJSON(m));
+});
+
+// Demo sign-in: hands a member's phone its QR signing secret.
+app.get('/api/secret', (req, res) => {
+  const m = world.members[String(req.query.code || '').toUpperCase()];
+  if (!m) return res.status(404).json({ error: 'Not found' });
+  res.json({ code: m.profile.stateCode, secret: m.secret });
+});
+
+// Staff scanners check a live QR before acting on it.
+app.post('/api/verify', (req, res) => {
+  const v = Engine.verifyQR(world, req.body && req.body.qr);
+  res.json({ ok: v.ok, reason: v.reason, code: v.code, meal: v.meal, kind: v.kind, day: v.day });
 });
 
 // Apply one or more actions in order (offline phones replay their queue here).
@@ -119,13 +136,13 @@ app.post('/api/actions', async (req, res) => {
   }
   await persist();
   broadcast();
-  res.json({ results, world });
+  sendWorld(res, { results });
 });
 
 app.get('/api/stream', (req, res) => {
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
-  res.write(`retry: 3000\nevent: world\ndata: ${JSON.stringify(world)}\n\n`);
+  res.write(`retry: 3000\nevent: world\ndata: ${publicJSON(world)}\n\n`);
   clients.add(res);
   req.on('close', () => clients.delete(res));
 });

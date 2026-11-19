@@ -1,5 +1,5 @@
 // CampPass service worker: caches every asset so the app runs 100% offline.
-const CACHE = 'camppass-v6';
+const CACHE = 'camppass-v8';
 const ASSETS = [
   './',
   './index.html',

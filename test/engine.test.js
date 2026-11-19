@@ -69,3 +69,36 @@ E.apply(w, { type: 'reset', day });
 assert.strictEqual(w.members[code].profile.first, 'Ngozi');
 assert.strictEqual(t(w).status, 'ready');
 console.log('All engine tests passed');
+
+// Live QR: signed per member, changes every 30 s, old codes and fakes are rejected
+{
+  const w = fresh(), sec = w.members[code].secret, now = Date.now();
+  const qr = E.makeQR(sec, code, day, 'lunch', 'M', now);
+  assert.ok(E.verifyQR(w, qr, now).ok);
+  assert.notStrictEqual(qr, E.makeQR(sec, code, day, 'lunch', 'M', now + 30000), 'code changes each window');
+  assert.strictEqual(E.verifyQR(w, qr, now + 95000).reason, 'expired', 'screenshot of an old code');
+  const forged = qr.replace(/[0-9A-F]{12}$/, 'ABCDEF123456');
+  assert.strictEqual(E.verifyQR(w, forged, now).reason, 'invalid');
+  assert.ok(E.apply(w, { type: 'checkin', day, meal: 'lunch', code, qr, at: now }).ok);
+  const old = E.makeQR(sec, code, day, 'lunch', 'M', now - 120000);
+  assert.strictEqual(E.apply(w, { type: 'serve', day, meal: 'lunch', code, qr: old, at: now }).msg, 'Code expired');
+}
+
+// Undo a serve: back in line, plate count restored
+{
+  const w = fresh();
+  E.apply(w, { type: 'checkin', day, meal: 'lunch', code });
+  const before = st(w).remaining;
+  E.apply(w, { type: 'serve', day, meal: 'lunch', code });
+  assert.strictEqual(st(w).remaining, before - 1);
+  assert.ok(E.apply(w, { type: 'undoServe', day, meal: 'lunch', code }).ok);
+  assert.strictEqual(t(w).status, 'queued');
+  assert.strictEqual(st(w).remaining, before);
+  // undo a priority serve: back to an unredeemed priority pass
+  E.apply(w, { type: 'finish', day, meal: 'lunch' });
+  E.apply(w, { type: 'addPlates', day, meal: 'lunch', n: 5 });
+  E.apply(w, { type: 'serve', day, meal: 'lunch', code });
+  E.apply(w, { type: 'undoServe', day, meal: 'lunch', code });
+  assert.strictEqual(t(w).status, 'rollover'); assert.ok(!t(w).redeemedAt);
+}
+console.log('Live QR and undo tests passed');
